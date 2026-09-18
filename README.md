@@ -8,6 +8,7 @@ The client supplies the actual issue or PR content. Codex Drafter owns the GitHu
 
 - Creates GitHub issues.
 - Creates pull requests from an existing branch.
+- Records the original user prompt in the issue or PR edit history before replacing it with the final drafted message.
 - Defaults pull requests to draft.
 - Appends the Codex authorship footer to PR descriptions automatically.
 - Supports local stdio MCP clients and a bearer-protected Streamable HTTP endpoint for remote clients.
@@ -41,9 +42,26 @@ By default the server listens only on `127.0.0.1:8787`:
 - MCP: `http://127.0.0.1:8787/mcp`
 - health: `http://127.0.0.1:8787/health`
 
+## Prompt provenance
+
+Both write tools take two separate text inputs:
+
+- `prompt` is the user's original input. Codex Drafter publishes this value verbatim, without trimming or rewriting it, immediately after an `## AI Prompt` heading.
+- `body` is the final issue or pull request message.
+
+The server creates the GitHub item with the prompt body first, then edits that same item to the final message. The current issue or PR stays clean while GitHub's edit history preserves the exact prompt that led to it.
+
+The initial body has this shape:
+
+```md
+## AI Prompt
+
+<user input verbatim>
+```
+
 ## PR footer
 
-Every PR created through `github_create_pull_request` gets the authorship disclosure appended at the very bottom of the body by the server itself.
+Every PR created through `github_create_pull_request` gets the authorship disclosure appended at the very bottom of the final body by the server itself.
 
 Set the public banner image and click target with:
 

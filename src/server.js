@@ -79,12 +79,16 @@ function withPullRequestStyle(body) {
   return normalized ? `${normalized}\n\n${footer}` : footer;
 }
 
+function initialPromptBody(prompt) {
+  return `## AI Prompt\n\n${String(prompt ?? '')}`;
+}
+
 function buildServer() {
   const server = new McpServer(
     { name: 'codex-drafter', version: '0.1.0' },
     {
       instructions:
-        'Use these tools only for explicit GitHub write requests. Pull requests default to draft. The server owns the final PR footer and appends it automatically.'
+        'Use these tools only for explicit GitHub write requests. Pass the user\'s original input verbatim in prompt and the finished GitHub text in body. The server first publishes ## AI Prompt plus prompt, then replaces that body with the final message. Pull requests default to draft and receive the server-owned authorship footer.'
     }
   );
 
@@ -92,28 +96,37 @@ function buildServer() {
     'github_create_issue',
     {
       title: 'Create GitHub issue',
-      description: 'Create an issue in a GitHub repository.',
+      description: 'Create an issue, first recording the original AI prompt in its edit history, then replacing it with the final body.',
       inputSchema: z.object({
         owner: z.string().min(1).optional().describe('Repository owner. Falls back to GITHUB_DEFAULT_OWNER.'),
         repo: z.string().min(1),
         title: z.string().min(1),
-        body: z.string().default(''),
+        prompt: z.string().min(1).describe('Original user input, copied verbatim without trimming or rewriting.'),
+        body: z.string().default('').describe('Final issue body that replaces the initial AI Prompt body.'),
         labels: z.array(z.string().min(1)).optional(),
         assignees: z.array(z.string().min(1)).optional()
       })
     },
-    async ({ owner, repo, title, body, labels, assignees }) => {
+    async ({ owner, repo, title, prompt, body, labels, assignees }) => {
       try {
         const resolvedOwner = ownerFor(owner);
         const issue = await githubRequest(`/repos/${encodeURIComponent(resolvedOwner)}/${encodeURIComponent(repo)}/issues`, {
           method: 'POST',
           body: JSON.stringify({
             title,
-            body,
+            body: initialPromptBody(prompt),
             ...(labels?.length ? { labels } : {}),
             ...(assignees?.length ? { assignees } : {})
           })
         });
+
+        await githubRequest(
+          `/repos/${encodeURIComponent(resolvedOwner)}/${encodeURIComponent(repo)}/issues/${issue.number}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ body })
+          }
+        );
 
         return toolResult({
           number: issue.number,
@@ -131,32 +144,41 @@ function buildServer() {
     'github_create_pull_request',
     {
       title: 'Create GitHub pull request',
-      description: 'Create a styled pull request from an existing head branch to a base branch.',
+      description: 'Create a styled pull request, first recording the original AI prompt in its edit history, then replacing it with the final body.',
       inputSchema: z.object({
         owner: z.string().min(1).optional().describe('Repository owner. Falls back to GITHUB_DEFAULT_OWNER.'),
         repo: z.string().min(1),
         title: z.string().min(1),
-        body: z.string().default(''),
+        prompt: z.string().min(1).describe('Original user input, copied verbatim without trimming or rewriting.'),
+        body: z.string().default('').describe('Final pull request body that replaces the initial AI Prompt body.'),
         head: z.string().min(1),
         base: z.string().min(1).default('main'),
         draft: z.boolean().default(true),
         maintainerCanModify: z.boolean().default(true)
       })
     },
-    async ({ owner, repo, title, body, head, base, draft, maintainerCanModify }) => {
+    async ({ owner, repo, title, prompt, body, head, base, draft, maintainerCanModify }) => {
       try {
         const resolvedOwner = ownerFor(owner);
         const pull = await githubRequest(`/repos/${encodeURIComponent(resolvedOwner)}/${encodeURIComponent(repo)}/pulls`, {
           method: 'POST',
           body: JSON.stringify({
             title,
-            body: withPullRequestStyle(body),
+            body: initialPromptBody(prompt),
             head,
             base,
             draft,
             maintainer_can_modify: maintainerCanModify
           })
         });
+
+        await githubRequest(
+          `/repos/${encodeURIComponent(resolvedOwner)}/${encodeURIComponent(repo)}/pulls/${pull.number}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ body: withPullRequestStyle(body) })
+          }
+        );
 
         return toolResult({
           number: pull.number,
