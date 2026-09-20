@@ -1,0 +1,20 @@
+{
+  "name": "@windsoruwu/codex-drafter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A personal MCP server for styled GitHub issues and pull requests.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "stdio": "node src/server.js --stdio",
+    "check": "node --check src/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/node": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
+    "zod": "4.5.4"
+  }
+}
