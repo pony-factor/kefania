@@ -107,7 +107,20 @@ async function addConversationSourceComment(owner, repo, number, source) {
   const existing = Array.isArray(comments)
     ? comments.find(comment => String(comment?.body ?? '').includes(marker))
     : undefined;
-  if (existing) return existing.html_url;
+  if (existing) {
+    const existingBody = String(existing?.body ?? '');
+    if (source.intentSummary && !existingBody.includes('**Intent:**')) {
+      const updated = await githubRequest(
+        repoPath(owner, repo, `/issues/comments/${existing.id}`),
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ body: formatConversationSourceComment(source) })
+        }
+      );
+      return updated?.html_url || existing.html_url;
+    }
+    return existing.html_url;
+  }
 
   const comment = await githubRequest(repoPath(owner, repo, `/issues/${number}/comments`), {
     method: 'POST',
@@ -278,7 +291,9 @@ function buildServer() {
       try {
         const resolvedOwner = ownerFor(owner);
         let pullNumber = number;
-        if (!pullNumber) {
+        if (pullNumber) {
+          await githubRequest(repoPath(resolvedOwner, repo, `/pulls/${pullNumber}`));
+        } else {
           if (!head) throw new Error('Provide either number or head to identify the pull request.');
           const pull = await findOpenPullRequest(resolvedOwner, repo, head, base);
           if (!pull) throw new Error(`No open pull request found for ${head} against ${base}.`);
