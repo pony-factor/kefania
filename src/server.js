@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 
 import { toNodeHandler } from '@modelcontextprotocol/node';
@@ -6,9 +7,22 @@ import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as z from 'zod/v4';
 
+import { formatConversationSourceComment, sourceMarker } from './provenance.js';
+
 const API_VERSION = '2022-11-28';
 const USER_AGENT = 'windsoruwu-codex-drafter/0.1.0';
 const DEFAULT_BANNER_LINK = 'https://youtu.be/DkUEHMfQw-I';
+const PULL_REQUEST_INSTRUCTIONS = readFileSync(
+  new URL('../PULL_REQUEST.md', import.meta.url),
+  'utf8'
+).trim();
+const CONVERSATION_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const conversationSourceSchema = z.object({
+  kind: z.enum(['chatgpt', 'codex']),
+  uuid: z.string().regex(CONVERSATION_UUID, 'Conversation source uuid must be a UUID.'),
+  url: z.string().url(),
+  intentSummary: z.string().max(800).optional()
+});
 
 function requiredEnv(name) {
   const value = process.env[name]?.trim();
@@ -83,12 +97,43 @@ function initialPromptBody(prompt) {
   return `## AI Prompt\n\n${String(prompt ?? '')}`;
 }
 
+function repoPath(owner, repo, suffix) {
+  return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}${suffix}`;
+}
+
+async function addConversationSourceComment(owner, repo, number, source) {
+  const marker = sourceMarker(source);
+  const comments = await githubRequest(repoPath(owner, repo, `/issues/${number}/comments?per_page=100`));
+  const existing = Array.isArray(comments)
+    ? comments.find(comment => String(comment?.body ?? '').includes(marker))
+    : undefined;
+  if (existing) return existing.html_url;
+
+  const comment = await githubRequest(repoPath(owner, repo, `/issues/${number}/comments`), {
+    method: 'POST',
+    body: JSON.stringify({ body: formatConversationSourceComment(source) })
+  });
+  return comment?.html_url;
+}
+
+async function findOpenPullRequest(owner, repo, head, base) {
+  const query = new URLSearchParams({
+    state: 'open',
+    head: `${owner}:${head}`,
+    base,
+    per_page: '20'
+  });
+  const pulls = await githubRequest(repoPath(owner, repo, `/pulls?${query}`));
+  if (!Array.isArray(pulls)) return undefined;
+  return pulls.find(pull => pull?.head?.ref === head && pull?.base?.ref === base);
+}
+
 function buildServer() {
   const server = new McpServer(
     { name: 'codex-drafter', version: '0.1.0' },
     {
       instructions:
-        'Use these tools only for explicit GitHub write requests. Pass the user\'s original input verbatim in prompt and the finished GitHub text in body. The server first publishes ## AI Prompt plus prompt, then replaces that body with the final message. Pull requests default to draft and receive the server-owned authorship footer.'
+        'Use these tools only for explicit GitHub write requests. Pass the user\'s original input verbatim in prompt and the finished GitHub text in body. The server first publishes ## AI Prompt plus prompt, then replaces that body with the final message. Pull requests default to draft and receive the server-owned authorship footer. Follow these canonical pull-request drafting instructions whenever preparing a pull request:\n\n' + PULL_REQUEST_INSTRUCTIONS
     }
   );
 
@@ -144,7 +189,7 @@ function buildServer() {
     'github_create_pull_request',
     {
       title: 'Create GitHub pull request',
-      description: 'Create a styled pull request, first recording the original AI prompt in its edit history, then replacing it with the final body.',
+      description: 'Create a styled pull request using Kafania\'s canonical drafting rules, preserve the original AI prompt in edit history, and optionally add a conversation-source comment.',
       inputSchema: z.object({
         owner: z.string().min(1).optional().describe('Repository owner. Falls back to GITHUB_DEFAULT_OWNER.'),
         repo: z.string().min(1),
@@ -154,10 +199,13 @@ function buildServer() {
         head: z.string().min(1),
         base: z.string().min(1).default('main'),
         draft: z.boolean().default(true),
-        maintainerCanModify: z.boolean().default(true)
+        maintainerCanModify: z.boolean().default(true),
+        source: conversationSourceSchema.optional().describe(
+          'Originating ChatGPT or Codex conversation. Preserve the actual UUID and URL. intentSummary may briefly describe the conversation goal rather than the final diff.'
+        )
       })
     },
-    async ({ owner, repo, title, prompt, body, head, base, draft, maintainerCanModify }) => {
+    async ({ owner, repo, title, prompt, body, head, base, draft, maintainerCanModify, source }) => {
       try {
         const resolvedOwner = ownerFor(owner);
         const pull = await githubRequest(`/repos/${encodeURIComponent(resolvedOwner)}/${encodeURIComponent(repo)}/pulls`, {
@@ -180,6 +228,21 @@ function buildServer() {
           }
         );
 
+        let sourceCommentUrl;
+        let sourceCommentError;
+        if (source) {
+          try {
+            sourceCommentUrl = await addConversationSourceComment(
+              resolvedOwner,
+              repo,
+              pull.number,
+              source
+            );
+          } catch (error) {
+            sourceCommentError = error instanceof Error ? error.message : String(error);
+          }
+        }
+
         return toolResult({
           number: pull.number,
           url: pull.html_url,
@@ -187,7 +250,50 @@ function buildServer() {
           title: pull.title,
           draft: pull.draft,
           head: pull.head?.ref,
-          base: pull.base?.ref
+          base: pull.base?.ref,
+          ...(sourceCommentUrl ? { sourceCommentUrl } : {}),
+          ...(sourceCommentError ? { sourceCommentError } : {})
+        });
+      } catch (error) {
+        return toolError(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    'github_comment_pull_request_source',
+    {
+      title: 'Comment pull request conversation source',
+      description: 'Add the formatted originating ChatGPT or Codex conversation link to an existing pull request. Repeated calls for the same source UUID are deduplicated.',
+      inputSchema: z.object({
+        owner: z.string().min(1).optional().describe('Repository owner. Falls back to GITHUB_DEFAULT_OWNER.'),
+        repo: z.string().min(1),
+        number: z.number().int().positive().optional(),
+        head: z.string().min(1).optional(),
+        base: z.string().min(1).default('main'),
+        source: conversationSourceSchema
+      })
+    },
+    async ({ owner, repo, number, head, base, source }) => {
+      try {
+        const resolvedOwner = ownerFor(owner);
+        let pullNumber = number;
+        if (!pullNumber) {
+          if (!head) throw new Error('Provide either number or head to identify the pull request.');
+          const pull = await findOpenPullRequest(resolvedOwner, repo, head, base);
+          if (!pull) throw new Error(`No open pull request found for ${head} against ${base}.`);
+          pullNumber = pull.number;
+        }
+        const commentUrl = await addConversationSourceComment(
+          resolvedOwner,
+          repo,
+          pullNumber,
+          source
+        );
+        return toolResult({
+          number: pullNumber,
+          repository: `${resolvedOwner}/${repo}`,
+          sourceCommentUrl: commentUrl
         });
       } catch (error) {
         return toolError(error);
