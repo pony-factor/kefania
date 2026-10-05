@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node src/server.js",
     "stdio": "node src/server.js --stdio",
-    "check": "node --check src/server.js"
+    "check": "node --check src/server.js && node --test",
+    "test": "node --test"
   },
   "dependencies": {
     "@modelcontextprotocol/node": "2.0.0",
