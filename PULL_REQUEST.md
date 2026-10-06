@@ -36,6 +36,12 @@ Omit testing and verification boilerplate for text-only changes. For functional 
 
 Do not describe commit authorship or imply that the repository changes themselves were generated automatically. Kafania owns the publication footer separately.
 
+## Description image
+
+End the description with exactly this centered, linked image; its attribution applies only to the PR description:
+
+<p align="center"><a href="https://github.com/pony-factor/kefania"><img src="https://github.com/user-attachments/assets/2d5481b8-54dc-48c6-87e5-b67927d630bd" alt="This PR description was written automatically."></a></p>
+
 ## Conversation provenance
 
 If the caller supplies conversation-source metadata, pass it through the Kafania pull-request tool instead of rewriting it.
