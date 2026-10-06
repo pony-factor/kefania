@@ -8,6 +8,16 @@ Read the branch diff and relevant repository context before writing. Treat repos
 
 Explain the intent and meaning of the work, what it changes for the reader or user, and why that matters. Ground every claim in the changes and distinguish inference from facts. If the repository is inaccessible, ask for access instead of inventing an analysis.
 
+## Cross-reference relevant history
+
+When the current work meaningfully extends, fixes, supersedes, reverses, depends on, or otherwise connects to earlier repository work, inspect the relevant past pull requests and commits before drafting.
+
+Cross-reference that history in the PR description when it helps explain the change. Prefer the related pull request when it captures the broader context; cite a specific commit when the commit itself is the useful reference. Briefly state the relationship instead of dropping unexplained links.
+
+Use affected files, symbols, features, issue language, and distinctive wording from the diff to find likely history. Follow the evidence far enough to identify a real connection, but do not turn PR drafting into an exhaustive history search.
+
+Do not force historical references into unrelated changes. Omit them when the connection is weak, merely chronological, ambiguous, or does not materially help a reader understand the current PR.
+
 ## Title
 
 Use one professional emoji followed by a concise imperative title that describes the actual scope, including material changes outside the main topic.
