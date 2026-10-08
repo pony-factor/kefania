@@ -52,6 +52,18 @@ End the description with exactly this centered, linked image; its attribution ap
 
 <p align="center"><a href="https://github.com/pony-factor/kefania"><img src="https://github.com/user-attachments/assets/2d5481b8-54dc-48c6-87e5-b67927d630bd" alt="This PR description was written automatically."></a></p>
 
+## Local Sweetiebot pony profile
+
+When the caller supplies a recognized Sweetiebot pony match, treat it as local chat enrichment only. It is completely separate from the pull request and must not appear in the PR title, description, comments, provenance metadata, or Kafania tool arguments.
+
+Publish the pull request normally first. After a successful publication, add a compact pony profile to the assistant's chat response. Use the supplied Sweetiebot catalog metadata only to identify the character; verify character facts with public sources instead of guessing from the branch slug.
+
+The profile should make a crowded cast easy to remember. Prefer a short conversational description of who the character is and why someone might recognize them, then cover the most useful available details: canon or fandom naming history, how the name became attached to the character, notable episode/film/comic appearances, speaking status and voice actor when known, aliases or production names, and distinctive visual or story context. Clearly distinguish official names from merchandise, credits, scripts, production labels, wiki conventions, and fan-created names.
+
+When image search or browsing is available, include useful show stills and fandom artwork or image results when they can be sourced. Favor recognizable images over generic search clutter and preserve source or artist attribution when available. Never invent an image, artist, appearance, line, or voice credit.
+
+Keep this local profile neat rather than exhaustive: enough detail to answer “who is this pony?” without turning every PR creation into a full character article.
+
 ## Conversation provenance
 
 If the caller supplies conversation-source metadata, pass it through the Kafania pull-request tool instead of rewriting it.
