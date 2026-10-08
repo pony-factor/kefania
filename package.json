@@ -1,0 +1,17 @@
+{
+  "name": "kefania-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kefania pull-request drafting and publishing MCP server",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/index.js",
+    "start:http": "node src/index.js --http",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "zod": "4.6.5"
+  }
+}
