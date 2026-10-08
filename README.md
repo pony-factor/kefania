@@ -7,9 +7,8 @@ The client supplies the actual issue or PR content. Codex Drafter owns the GitHu
 ## What it does
 
 - Creates GitHub issues.
-- Creates pull requests from an existing branch using the canonical rules in `PULL_REQUEST.md`.
+- Creates pull requests from an existing branch.
 - Records the original user prompt in the issue or PR edit history before replacing it with the final drafted message.
-- Adds a formatted, deduplicated comment linking the originating ChatGPT or Codex conversation UUID when source metadata is supplied.
 - Defaults pull requests to draft.
 - Appends the Codex authorship footer to PR descriptions automatically.
 - Supports local stdio MCP clients and a bearer-protected Streamable HTTP endpoint for remote clients.
@@ -60,17 +59,11 @@ The initial body has this shape:
 <user input verbatim>
 ```
 
-## Pull-request drafting rules
+## Canonical rules and conversation provenance
 
-`PULL_REQUEST.md` is the canonical drafting contract used by the Sweetiebot PR button and exposed through the MCP server instructions. Keep substantive PR-writing guidance there rather than duplicating it in client repositories.
+`PULL_REQUEST.md` contains the canonical drafting rules. The current MCP server exposes these through `kefania_drafting_rules` and includes them in `github_get_pull_request_context` so clients can ground the title and description in the actual branch diff.
 
-## Conversation provenance
-
-`github_create_pull_request` accepts optional source metadata with the originating ChatGPT or Codex conversation kind, UUID, link, and a short intent summary. When present, Kafania adds a separate `### Conversation source` comment after opening the PR.
-
-The comment is keyed by a hidden UUID marker, so a later `github_comment_pull_request_source` call can safely add the same source after the fact without posting a duplicate. The follow-up tool accepts either a PR number or a head branch plus base branch.
-
-The intent summary describes what the source conversation was trying to accomplish. It is deliberately separate from the diff-based PR description and may differ from what ultimately changed.
+`github_create_pull_request` and `github_comment_pull_request_source` accept optional, caller-supplied ChatGPT or Codex conversation metadata. When provided, the server adds a separate, deduplicated provenance comment; it never fabricates a conversation UUID or URL.
 
 ## PR footer
 
@@ -111,6 +104,5 @@ Keep `GITHUB_TOKEN` in the process environment or a secret manager. For a fine-g
 
 - `github_create_issue`
 - `github_create_pull_request`
-- `github_comment_pull_request_source`
 
 The first version intentionally does not create branches, write repository files, merge PRs, modify reviews, or manage GitHub App/OAuth installation tokens. Those can be added as separate tools later.
