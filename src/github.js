@@ -36,7 +36,7 @@ export function githubRequest(endpoint, { method = 'GET', body } = {}) {
         return finish(failure);
       }
       try { finish(null, JSON.parse(output)); }
-      catch { finish(new Error('GitHub returned an invalid response.'));
+      catch { finish(new Error('GitHub returned an invalid response.')); }
     });
     child.stdin.on('error', () => {});
     child.stdin.end(body === undefined ? undefined : JSON.stringify(body));
