@@ -1,108 +1,63 @@
-# Codex Drafter
+# Kefania MCP
 
-A small Model Context Protocol server that gives Codex and other MCP clients a controlled way to open GitHub issues and pull requests using a consistent personal publishing style.
+Kefania supplies the GitHub tools requested by Sweetiebot's New PR button. The MCP server identifies itself as `codex-drafter`. It runs locally over stdio or over authenticated Streamable HTTP.
 
-The client supplies the actual issue or PR content. Codex Drafter owns the GitHub write step and the presentation rules that should always be applied.
+The drafting model writes the title and description from repository evidence. Kefania reads the published branch comparison, publishes the PR, applies the description image from `PULL_REQUEST.md`, and records supplied conversation provenance in a separate comment. It never stages, commits, pushes, or merges repository changes.
 
-## What it does
+## Local setup
 
-- Creates GitHub issues.
-- Creates pull requests from an existing branch.
-- Records the original user prompt in the issue or PR edit history before replacing it with the final drafted message.
-- Defaults pull requests to draft.
-- Appends the Codex authorship footer to PR descriptions automatically.
-- Supports local stdio MCP clients and a bearer-protected Streamable HTTP endpoint for remote clients.
-
-## Install
+Install Node.js 20 or newer and the GitHub CLI. Sign in with `gh auth login` if needed, then run:
 
 ```sh
-npm install
-```
-
-## Local stdio
-
-```sh
-export GITHUB_TOKEN='...'
-export GITHUB_DEFAULT_OWNER='windsorUwU'
-npm run stdio
-```
-
-A local MCP client can launch that command as a child process. Nothing needs to be exposed to the internet.
-
-## Local HTTP
-
-```sh
-export GITHUB_TOKEN='...'
-export GITHUB_DEFAULT_OWNER='windsorUwU'
+npm ci --ignore-scripts
 npm start
 ```
 
-By default the server listens only on `127.0.0.1:8787`:
-
-- MCP: `http://127.0.0.1:8787/mcp`
-- health: `http://127.0.0.1:8787/health`
-
-## Prompt provenance
-
-Both write tools take two separate text inputs:
-
-- `prompt` is the user's original input. Codex Drafter publishes this value verbatim, without trimming or rewriting it, immediately after an `## AI Prompt` heading.
-- `body` is the final issue or pull request message.
-
-The server creates the GitHub item with the prompt body first, then edits that same item to the final message. The current issue or PR stays clean while GitHub's edit history preserves the exact prompt that led to it.
-
-The initial body has this shape:
-
-```md
-## AI Prompt
-
-<user input verbatim>
-```
-
-## Canonical rules and conversation provenance
-
-`PULL_REQUEST.md` contains the canonical drafting rules. The current MCP server exposes these through `kefania_drafting_rules` and includes them in `github_get_pull_request_context` so clients can ground the title and description in the actual branch diff.
-
-`github_create_pull_request` and `github_comment_pull_request_source` accept optional, caller-supplied ChatGPT or Codex conversation metadata. When provided, the server adds a separate, deduplicated provenance comment; it never fabricates a conversation UUID or URL.
-
-## PR footer
-
-Every PR created through `github_create_pull_request` gets the authorship disclosure appended at the very bottom of the final body by the server itself.
-
-Set the public banner image and click target with:
+`npm start` speaks MCP over stdin/stdout; it does not open a web page. The included `.vscode/mcp.json` registers the local server when this repository is open in VS Code. To make it available in other VS Code workspaces, use the supported `code --add-mcp` command with an absolute entrypoint path:
 
 ```sh
-export CODEX_BANNER_URL='https://raw.githubusercontent.com/windsorUwU/codex-drafter/main/assets/codex-banner.png'
-export CODEX_BANNER_LINK='https://youtu.be/DkUEHMfQw-I'
+code --add-mcp '{"name":"codex-drafter","command":"node","args":["/absolute/path/to/kefania/src/index.js"]}'
 ```
 
-If `CODEX_BANNER_URL` is not set, the footer falls back to a linked text credit instead of inserting a broken image. The intended canonical asset is the generated dark Codex pony banner in `assets/codex-banner.png` once that binary is committed.
+Kefania uses the GitHub CLI's existing authentication. It does not open credential files or require a token in an MCP configuration file. A deployment can provide `GH_TOKEN` or `GITHUB_TOKEN` through its environment instead.
 
-## Remote connection
+## Tools
 
-Codex Web or another cloud MCP client needs a remotely reachable HTTPS endpoint rather than a process running only on your Mac.
+| Tool | Purpose |
+| --- | --- |
+| `kefania_status` | Check GitHub access and repository scope without writing. |
+| `kefania_drafting_rules` | Read the canonical instructions. |
+| `github_get_pull_request_context` | Read the published branch comparison, return its head SHA and drafting rules. |
+| `github_create_pull_request` | Create a draft PR, or return the existing open PR for the same head/base. |
+| `github_comment_pull_request_source` | Record supplied originating conversation metadata once on an open PR. |
+| `github_create_issue` | Preserve a supplied prompt in edit history and publish the final issue text. |
 
-For a remote deployment, explicitly configure:
+The server also exposes `kefania://pull-request/rules` and the `draft_pull_request` prompt.
 
-```sh
-export GITHUB_TOKEN='...'
-export GITHUB_DEFAULT_OWNER='windsorUwU'
-export MCP_HOST='0.0.0.0'
-export MCP_PORT='8787'
-export MCP_PUBLIC_HOSTNAME='mcp.example.com'
-export MCP_BEARER_TOKEN='a-long-random-secret'
-npm start
-```
+Read the comparison before creating a PR and pass its `headSha` as `expectedHeadSha`. Creation rejects a changed head or a branch with no committed difference from the base. This version supports branches in the selected repository. Comparisons flag omitted, unavailable, or truncated patches; do not describe unseen changes as reviewed.
 
-Non-loopback startup fails closed unless both `MCP_PUBLIC_HOSTNAME` and `MCP_BEARER_TOKEN` are present. Terminate TLS at a trusted reverse proxy or hosting platform and connect the MCP client to `https://mcp.example.com/mcp`.
+PRs default to draft. Set `draft: false` to request a ready-for-review PR. The description image appears exactly once. The optional `prompt` argument is published verbatim under `## AI Prompt` and then replaced by the final description, preserving the original in GitHub edit history. Only supply text the user authorized for publication; source-conversation metadata belongs in the separate `source` argument. Issue creation requires `prompt`.
 
-## GitHub permissions
+When description finalization or provenance recording fails after creation, the result retains the created PR or issue URL and identifies the failed step. Do not repeat creation to repair that step.
 
-Keep `GITHUB_TOKEN` in the process environment or a secret manager. For a fine-grained token, grant only the repositories this service should modify. The initial tools need Issues write permission for issue creation and Pull requests write permission for PR creation.
+## HTTP and remote clients
 
-## Current tools
+Set these environment variables through the hosting platform or process environment:
 
-- `github_create_issue`
-- `github_create_pull_request`
+- `KEFANIA_MCP_TOKEN`: a separate bearer secret of at least 32 characters; never the GitHub token.
+- `KEFANIA_ALLOWED_REPOSITORIES`: a comma-separated list of exact `owner/repo` names.
+- `KEFANIA_HOST`: defaults to `127.0.0.1`.
+- `PORT`: defaults to `8765`.
+- `KEFANIA_ALLOWED_HOSTS`: required for a non-local listener; list the hostnames served by the reverse proxy.
 
-The first version intentionally does not create branches, write repository files, merge PRs, modify reviews, or manage GitHub App/OAuth installation tokens. Those can be added as separate tools later.
+Then run `npm run start:http`. The MCP endpoint is `/mcp`; `/health` reports whether the HTTP listener is running. `kefania_status` checks actual GitHub access. MCP requests require `Authorization: Bearer <KEFANIA_MCP_TOKEN>`. HTTP rejects browser-origin requests and validates the Host header. Repository restrictions apply to every read and write.
+
+The prior environment names `MCP_HOST`, `MCP_PORT`, `MCP_BEARER_TOKEN`, and `MCP_PUBLIC_HOSTNAME` remain supported. The Dockerfile includes Node and the GitHub CLI and starts HTTP mode. Provide secrets at runtime, never in the image or repository.
+
+Local VS Code registration makes the server available to VS Code's MCP clients. It does **not** connect ChatGPT inside the Integrated Browser. A browser/cloud client needs a reachable HTTPS endpoint and a compatible authentication connection. The HTTP transport currently supports bearer-authenticated clients; it does not implement an OAuth authorization service. Configure supported authentication at the hosting gateway before connecting ChatGPT. No public endpoint is deployed by this checkout.
+
+## Verification
+
+`npm test` exercises MCP startup and discovery, authenticated HTTP, repository scope, exact prompt preservation, duplicate PR prevention, changed-head rejection, attribution, and provenance failures. GitHub writes in tests use fixtures. Live setup verification can call `kefania_status` and a read-only branch comparison without publishing anything.
+
+Transport implementation follows the [official MCP SDK server guidance](https://ts.sdk.modelcontextprotocol.io/server).

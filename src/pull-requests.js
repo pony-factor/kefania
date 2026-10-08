@@ -4,6 +4,7 @@ import { githubRequest } from './github.js';
 
 export const FOOTER = '<p align="center"><a href="https://github.com/pony-factor/kefania"><img src="https://github.com/user-attachments/assets/2d5481b8-54dc-48c6-87e5-b67927d630bd" alt="This PR description was written automatically."></a></p>';
 export const rules = () => readFile(new URL('../PULL_REQUEST.md', import.meta.url), 'utf8');
+export const initialPromptBody = prompt => `## AI Prompt\n\n${prompt}`;
 
 function repository({ owner, repo }, allowedRepositories) {
   const name = `${owner}/${repo}`;
@@ -66,11 +67,19 @@ export function createActions({ request = githubRequest, allowedRepositories = [
     catch { return { recorded: false, reason: 'PR exists, but source recording failed. Retry github_comment_pull_request_source, not PR creation.' }; }
   };
   const summary = pr => ({ number: pr.number, url: pr.html_url, head: pr.head.ref, base: pr.base.ref });
+  const finalize = async (root, pr, body) => {
+    try {
+      await request(`${root}/pulls/${pr.number}`, { method: 'PATCH', body: { body } });
+      return { finalized: true };
+    } catch {
+      return { finalized: false, reason: 'PR exists, but final-description update failed. Edit this PR; do not create another.' };
+    }
+  };
   return {
     async context(args) {
       const root = repository(args, allowedRepositories);
-      const comparison = await request(`${root}/compare/${encodeURIComponent(args.base)}...${encodeURIComponent(args.head)}?per_page=100`);
       const head = await request(`${root}/commits/${encodeURIComponent(args.head)}`);
+      const comparison = await request(`${root}/compare/${encodeURIComponent(args.base)}...${head.sha}?per_page=100`);
       const files = (comparison.files || []).map(file => secretPath(file.filename) || secretPath(file.previous_filename || '')
         ? { filename: file.filename, omitted: 'Secret-bearing path; contents withheld.' }
         : { filename: file.filename, status: file.status, additions: file.additions, deletions: file.deletions,
@@ -94,7 +103,9 @@ export function createActions({ request = githubRequest, allowedRepositories = [
         if (!comparison.ahead_by) throw new Error('The published head has no committed changes ahead of the base.');
         const currentSha = (await request(`${root}/commits/${encodeURIComponent(args.head)}`)).sha;
         if (currentSha !== args.expectedHeadSha) throw new Error('The head changed since drafting. Read the comparison again before publishing.');
-        const payload = { title: args.title, body: descriptionBody(args.body), head: args.head, base: args.base, draft: args.draft || false };
+        const finalBody = descriptionBody(args.body);
+        const payload = { title: args.title, body: args.prompt === undefined ? finalBody : initialPromptBody(args.prompt), head: args.head, base: args.base, draft: args.draft ?? true,
+          maintainer_can_modify: args.maintainerCanModify ?? true };
         try { pr = await request(`${root}/pulls`, { method: 'POST', body: payload }); }
         catch (error) {
           // Another process may have published after our initial read, or a
@@ -103,7 +114,8 @@ export function createActions({ request = githubRequest, allowedRepositories = [
           if (existing) return { ...summary(existing), existing: true, source: await provenance(root, existing, args.source) };
           throw error;
         }
-        return { ...summary(pr), existing: false, source: await provenance(root, pr, args.source) };
+        const description = args.prompt === undefined ? { finalized: true } : await finalize(root, pr, finalBody);
+        return { ...summary(pr), existing: false, description, source: await provenance(root, pr, args.source) };
       });
     },
     async comment(args) {
@@ -116,7 +128,20 @@ export function createActions({ request = githubRequest, allowedRepositories = [
     },
     async status() {
       const user = await request('user');
-      return { ready: true, githubLogin: user.login, allowedRepositories, writes: ['create pull request', 'add source comment'] };
+      return { ready: true, githubLogin: user.login, allowedRepositories, writes: ['create pull request', 'add source comment', 'create issue'] };
+    },
+    async issue(args) {
+      const root = repository(args, allowedRepositories);
+      const issue = await request(`${root}/issues`, { method: 'POST', body: {
+        title: args.title, body: initialPromptBody(args.prompt), labels: args.labels || [], assignees: args.assignees || [],
+      } });
+      try {
+        await request(`${root}/issues/${issue.number}`, { method: 'PATCH', body: { body: args.body } });
+        return { number: issue.number, url: issue.html_url, finalized: true };
+      } catch {
+        return { number: issue.number, url: issue.html_url, finalized: false,
+          reason: 'Issue exists, but final-description update failed. Edit this issue; do not create another.' };
+      }
     },
   };
 }

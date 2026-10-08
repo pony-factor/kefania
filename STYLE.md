@@ -1,19 +1,13 @@
 # GitHub publishing style
 
-Codex Drafter is the final publishing layer for issues and pull requests created through its MCP tools.
+`PULL_REQUEST.md` contains the canonical drafting and description-image rules. The model supplies the substantive title and body; the server owns publication.
 
-## Rules
+- PRs default to draft unless the caller explicitly sets `draft: false`.
+- The server appends the canonical centered, linked description image exactly once.
+- When a PR caller supplies `prompt`, publish it verbatim under `## AI Prompt`, then replace it with the finished description. GitHub edit history retains the prompt. Issue creation requires this argument.
+- Publish only prompt text the user authorized for GitHub. Conversation UUIDs, source URLs, and intent summaries are recorded through `source` in a separate PR comment.
+- Do not put references to Codex or AI in the PR title or imply that description attribution applies to the repository changes.
+- An existing open PR for the same head/base is returned without replacing its title or description.
+- If creation succeeds but a subsequent edit or comment fails, return the published URL and the failed step. Repair that item instead of creating another.
 
-- Every issue and pull request is initially created with `## AI Prompt`, a blank line, and the exact `prompt` value supplied by the caller.
-- Preserve `prompt` byte-for-byte as text: do not trim, normalize whitespace, correct spelling, or otherwise rewrite the user's input.
-- After creation, replace the item body with the final `body`; prompt provenance should remain in GitHub's edit history rather than the current body.
-- Pull requests are drafts by default unless the caller explicitly requests otherwise.
-- The caller supplies the substantive title and body; the server should not silently rewrite their meaning.
-- Do not put references to Codex or AI in the PR title.
-- Preserve the caller's PR body and append the authorship disclosure as the final block.
-- Keep substantive drafting guidance in `PULL_REQUEST.md` and obtain actual conversation-source metadata from the caller; never invent a UUID or source URL.
-- The disclosure is always collapsed inside `<details>`.
-- When `CODEX_BANNER_URL` is configured, the banner itself is clickable and links to `CODEX_BANNER_LINK`.
-- If the banner URL is unavailable, use a linked text credit rather than a broken image.
-
-The point of keeping these rules in the server is that Codex does not need to remember them separately in every repository.
+The prior configurable collapsed banner has been replaced by the canonical description image. `CODEX_BANNER_URL` and `CODEX_BANNER_LINK` are no longer used.

@@ -1,7 +1,9 @@
 FROM node:22-alpine
 WORKDIR /app
-COPY package.json ./
-RUN npm install --omit=dev
+RUN apk add --no-cache github-cli
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts
 COPY src ./src
-EXPOSE 8787
-CMD ["npm", "start"]
+COPY PULL_REQUEST.md ./
+EXPOSE 8765
+CMD ["npm", "run", "start:http"]
