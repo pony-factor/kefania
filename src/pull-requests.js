@@ -70,6 +70,7 @@ export function createActions({ request = githubRequest, allowedRepositories = [
     async context(args) {
       const root = repository(args, allowedRepositories);
       const comparison = await request(`${root}/compare/${encodeURIComponent(args.base)}...${encodeURIComponent(args.head)}?per_page=100`);
+      const head = await request(`${root}/commits/${encodeURIComponent(args.head)}`);
       const files = (comparison.files || []).map(file => secretPath(file.filename) || secretPath(file.previous_filename || '')
         ? { filename: file.filename, omitted: 'Secret-bearing path; contents withheld.' }
         : { filename: file.filename, status: file.status, additions: file.additions, deletions: file.deletions,
@@ -77,7 +78,7 @@ export function createActions({ request = githubRequest, allowedRepositories = [
             patchUnavailable: !file.patch });
       return {
         repository: `${args.owner}/${args.repo}`, head: args.head, base: args.base,
-        headSha: comparison.commits?.at(-1)?.sha || comparison.base_commit?.sha,
+        headSha: head.sha,
         baseSha: comparison.base_commit?.sha, aheadBy: comparison.ahead_by, behindBy: comparison.behind_by,
         files, incomplete: (comparison.files?.length || 0) >= 300 || files.some(file => file.omitted || file.patchTruncated || file.patchUnavailable),
         commitsTruncated: comparison.total_commits > (comparison.commits?.length || 0),
@@ -91,7 +92,7 @@ export function createActions({ request = githubRequest, allowedRepositories = [
         if (pr) return { ...summary(pr), existing: true, source: await provenance(root, pr, args.source) };
         const comparison = await request(`${root}/compare/${encodeURIComponent(args.base)}...${encodeURIComponent(args.head)}`);
         if (!comparison.ahead_by) throw new Error('The published head has no committed changes ahead of the base.');
-        const currentSha = comparison.commits?.at(-1)?.sha;
+        const currentSha = (await request(`${root}/commits/${encodeURIComponent(args.head)}`)).sha;
         if (currentSha !== args.expectedHeadSha) throw new Error('The head changed since drafting. Read the comparison again before publishing.');
         const payload = { title: args.title, body: descriptionBody(args.body), head: args.head, base: args.base, draft: args.draft || false };
         try { pr = await request(`${root}/pulls`, { method: 'POST', body: payload }); }
