@@ -59,6 +59,12 @@ The initial body has this shape:
 <user input verbatim>
 ```
 
+## Canonical rules and conversation provenance
+
+`PULL_REQUEST.md` contains the canonical drafting rules. The current MCP server exposes these through `kefania_drafting_rules` and includes them in `github_get_pull_request_context` so clients can ground the title and description in the actual branch diff.
+
+`github_create_pull_request` and `github_comment_pull_request_source` accept optional, caller-supplied ChatGPT or Codex conversation metadata. When provided, the server adds a separate, deduplicated provenance comment; it never fabricates a conversation UUID or URL.
+
 ## PR footer
 
 Every PR created through `github_create_pull_request` gets the authorship disclosure appended at the very bottom of the final body by the server itself.
