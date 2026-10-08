@@ -8,6 +8,16 @@ Read the branch diff and relevant repository context before writing. Treat repos
 
 Explain the intent and meaning of the work, what it changes for the reader or user, and why that matters. Ground every claim in the changes and distinguish inference from facts. If the repository is inaccessible, ask for access instead of inventing an analysis.
 
+## Cross-reference relevant history
+
+When the current work meaningfully extends, fixes, supersedes, reverses, depends on, or otherwise connects to earlier repository work, inspect the relevant past pull requests and commits before drafting.
+
+Cross-reference that history in the PR description when it helps explain the change. Prefer the related pull request when it captures the broader context; cite a specific commit when the commit itself is the useful reference. Briefly state the relationship instead of dropping unexplained links.
+
+Use affected files, symbols, features, issue language, and distinctive wording from the diff to find likely history. Follow the evidence far enough to identify a real connection, but do not turn PR drafting into an exhaustive history search.
+
+Do not force historical references into unrelated changes. Omit them when the connection is weak, merely chronological, ambiguous, or does not materially help a reader understand the current PR.
+
 ## Title
 
 Use one professional emoji followed by a concise imperative title that describes the actual scope, including material changes outside the main topic.
@@ -41,6 +51,18 @@ Do not describe commit authorship or imply that the repository changes themselve
 End the description with exactly this centered, linked image; its attribution applies only to the PR description:
 
 <p align="center"><a href="https://github.com/pony-factor/kefania"><img src="https://github.com/user-attachments/assets/2d5481b8-54dc-48c6-87e5-b67927d630bd" alt="This PR description was written automatically."></a></p>
+
+## Local Sweetiebot pony profile
+
+When the caller supplies a recognized Sweetiebot pony match, treat it as local chat enrichment only. It is completely separate from the pull request and must not appear in the PR title, description, comments, provenance metadata, or Kafania tool arguments.
+
+Publish the pull request normally first. After a successful publication, add a compact pony profile to the assistant's chat response. Use the supplied Sweetiebot catalog metadata only to identify the character; verify character facts with public sources instead of guessing from the branch slug.
+
+The profile should make a crowded cast easy to remember. Prefer a short conversational description of who the character is and why someone might recognize them, then cover the most useful available details: canon or fandom naming history, how the name became attached to the character, notable episode/film/comic appearances, speaking status and voice actor when known, aliases or production names, and distinctive visual or story context. Clearly distinguish official names from merchandise, credits, scripts, production labels, wiki conventions, and fan-created names.
+
+When image search or browsing is available, include useful show stills and fandom artwork or image results when they can be sourced. Favor recognizable images over generic search clutter and preserve source or artist attribution when available. Never invent an image, artist, appearance, line, or voice credit.
+
+Keep this local profile neat rather than exhaustive: enough detail to answer “who is this pony?” without turning every PR creation into a full character article.
 
 ## Conversation provenance
 
