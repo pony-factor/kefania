@@ -34,7 +34,7 @@ Include an inference only when it is useful, label it as an inference, and state
 
 Omit testing and verification boilerplate for text-only changes. For functional changes, mention checks only when their results or limitations materially affect understanding beyond visible CI.
 
-Do not describe commit authorship or imply that the repository changes themselves were generated automatically. Kafania owns the publication footer separately.
+Do not describe commit authorship or imply that the repository changes themselves were generated automatically. The publication footer attributes only the PR description.
 
 ## Description image
 
@@ -52,4 +52,10 @@ When the source conversation text is available, add a brief one- or two-sentence
 
 ## Publishing
 
-Publish through Kafania's `github_create_pull_request` tool. Let the tool own GitHub creation, prompt-history preservation, provenance-comment formatting, and the authorship footer.
+Prefer Kafania's `github_create_pull_request` tool when it is available. Let that tool own GitHub creation, prompt-history preservation, provenance-comment formatting, and the authorship footer.
+
+If the configured Kafania tool is unavailable, use an available authenticated GitHub pull-request creation tool. Include the description image above exactly once in the submitted body. Resolve the repository and exact head and base from the caller, read the branch comparison, and check for an existing open PR for that head and base before creating another. Report the existing PR when one already exists.
+
+When publishing through the fallback, do not pass Kafania-only source fields to the GitHub creation tool. If actual conversation-source metadata was supplied, add a separate PR conversation comment after creation containing its kind, UUID, URL, and optional intent summary. Keep private or local source links in that comment, never in the PR description. If commenting fails, report that the PR exists and provenance recording failed; do not create another PR. Do not claim Kafania prompt-history preservation in the fallback.
+
+If no authenticated publishing tool is available, report that specific missing connection and leave a finished title and description for the caller. Never stage, commit, or push as part of this drafting request. If the head branch is unpublished or has no committed difference from the base, explain that prerequisite instead of creating unrelated changes.
