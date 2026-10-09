@@ -127,8 +127,8 @@ export function createActions({ request = githubRequest, allowedRepositories = [
       });
     },
     async status() {
-      const user = await request('user');
-      return { ready: true, githubLogin: user.login, allowedRepositories, writes: ['create pull request', 'add source comment', 'create issue'] };
+      const identity = request.status ? await request.status() : { githubLogin: (await request('user')).login };
+      return { ready: true, ...identity, allowedRepositories, writes: ['create pull request', 'add source comment', 'create issue'] };
     },
     async issue(args) {
       const root = repository(args, allowedRepositories);

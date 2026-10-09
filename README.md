@@ -6,9 +6,9 @@ The drafting model writes the title and description from repository evidence. Ke
 
 ## Local setup
 
-For Sweetiebot's PR button, the local runner uses your existing Codex ChatGPT login to draft, then publishes through the GitHub CLI. It requires no OpenAI API key, HTTP listener, or tunnel. Install the Codex CLI and sign in with `codex login`; sign in to GitHub with `gh auth login`. Keep this checkout beside the repository using Sweetiebot and install its dependencies with `npm ci --ignore-scripts`.
+For Sweetiebot's PR button, the local runner uses your existing Codex ChatGPT login to draft, then publishes as the `codex-pony` GitHub App. It requires no OpenAI API key, HTTP listener, or tunnel. Install the Codex CLI and sign in with `codex login`; configure the GitHub App environment below. Keep this checkout beside the repository using Sweetiebot and install its dependencies with `npm ci --ignore-scripts`.
 
-The button passes the repository, head, base, and available conversation source to `src/local-pr.js`. The runner reads the published comparison through `gh`, withholds secret-bearing patches, and asks a read-only Codex process for structured title/body text. Kefania then publishes a draft PR using the verified head SHA and existing duplicate and provenance handling. It never stages, commits, or pushes.
+The button passes the repository, head, base, and available conversation source to `src/local-pr.js`. The runner reads the published comparison through the GitHub App API, withholds secret-bearing patches, and asks a read-only Codex process for structured title/body text. Kefania then publishes a draft PR using the verified head SHA and existing duplicate and provenance handling. It never stages, commits, or pushes.
 
 To generate text without publishing, send a JSON request on stdin:
 
@@ -20,7 +20,7 @@ Omit `draftOnly` to draft and publish. The runner forces ChatGPT login and remov
 
 The MCP transports below remain available for clients that already use them.
 
-Install Node.js 20 or newer and the GitHub CLI. Sign in with `gh auth login` if needed, then run:
+Install Node.js 20 or newer, configure the app environment, then run:
 
 ```sh
 npm ci --ignore-scripts
@@ -33,7 +33,17 @@ npm start
 code --add-mcp '{"name":"codex-drafter","command":"node","args":["/absolute/path/to/kefania/src/index.js"]}'
 ```
 
-Kefania uses the GitHub CLI's existing authentication. It does not open credential files or require a token in an MCP configuration file. A deployment can provide `GH_TOKEN` or `GITHUB_TOKEN` through its environment instead.
+### GitHub App identity
+
+Kefania defaults to the `codex-pony` app installation for every GitHub request, including PR creation and provenance comments. Supply these variables securely through the process environment for both the MCP server and the local runner:
+
+- `KEFANIA_GITHUB_APP_ID`: the app ID or client ID from the app settings.
+- `KEFANIA_GITHUB_INSTALLATION_ID`: the installation ID for the account owning the repositories.
+- `KEFANIA_GITHUB_PRIVATE_KEY`: the PEM private key, with actual newlines.
+
+Install the app on the target repositories with Contents read access and Pull requests and Issues write access. Kefania verifies the app slug, exchanges a signed JWT for an installation token, and refreshes it before expiry. It never reads credential files or logs credentials. Missing or invalid app configuration fails without falling back to a personal account. `kefania_status` reports the app bot identity and verifies installation access.
+
+For an intentional personal-account setup, set `KEFANIA_GITHUB_AUTH=cli` and sign in with `gh auth login`. This explicitly restores the previous GitHub CLI authentication behavior; `GH_TOKEN` or `GITHUB_TOKEN` apply only in this mode.
 
 ## Tools
 

@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process';
+import { createSign } from 'node:crypto';
 
 // gh uses its existing login; credentials never enter tool arguments or logs.
-export function githubRequest(endpoint, { method = 'GET', body } = {}) {
+export function githubCliRequest(endpoint, { method = 'GET', body } = {}) {
   return new Promise((resolve, reject) => {
     const args = ['api', '--hostname', 'github.com', '--method', method, endpoint];
     if (body !== undefined) args.push('--input', '-');
@@ -42,3 +43,90 @@ export function githubRequest(endpoint, { method = 'GET', body } = {}) {
     child.stdin.end(body === undefined ? undefined : JSON.stringify(body));
   });
 }
+
+// Credentials are supplied by the process environment, never read from files.
+export function createAppRequest({ env = process.env, fetchImpl = fetch, now = Date.now } = {}) {
+  let appPromise, tokenPromise, cachedToken;
+  const api = async (endpoint, authorization, { method = 'GET', body } = {}) => {
+    let response;
+    try {
+      response = await fetchImpl(`https://api.github.com/${endpoint}`, {
+        method, headers: { Authorization: `Bearer ${authorization}`, Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2026-03-10', 'User-Agent': 'kefania',
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(60000),
+      });
+    } catch { throw new Error('GitHub App request failed or timed out. Check whether the write succeeded before retrying.'); }
+    if (!response.ok) {
+      const error = new Error(`GitHub App request failed (HTTP ${response.status}). Check codex-pony installation access and permissions.`);
+      error.status = response.status;
+      throw error;
+    }
+    try { return await response.json(); }
+    catch { throw new Error('GitHub App returned an invalid response.'); }
+  };
+  const jwt = () => {
+    if (!env.KEFANIA_GITHUB_APP_ID || !/^\d+$/.test(env.KEFANIA_GITHUB_INSTALLATION_ID || '') || !env.KEFANIA_GITHUB_PRIVATE_KEY) {
+      throw new Error('Configure KEFANIA_GITHUB_APP_ID, KEFANIA_GITHUB_INSTALLATION_ID, and KEFANIA_GITHUB_PRIVATE_KEY for codex-pony. Supply credentials securely through the process environment.');
+    }
+    const seconds = Math.floor(now() / 1000);
+    const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+    const unsigned = `${encode({ alg: 'RS256', typ: 'JWT' })}.${encode({ iat: seconds - 60, exp: seconds + 540, iss: env.KEFANIA_GITHUB_APP_ID })}`;
+    try {
+      const signer = createSign('RSA-SHA256');
+      signer.update(unsigned);
+      return `${unsigned}.${signer.sign(env.KEFANIA_GITHUB_PRIVATE_KEY).toString('base64url')}`;
+    } catch { throw new Error('GitHub App private key is invalid. Supply a PEM private key through the process environment.'); }
+  };
+  const app = async () => {
+    if (!appPromise) {
+      appPromise = api('app', jwt()).then(value => {
+        if (value.slug !== 'codex-pony') throw new Error('Configured GitHub App must be codex-pony.');
+        return value;
+      }).catch(error => { appPromise = undefined; throw error; });
+    }
+    return appPromise;
+  };
+  const token = async () => {
+    await app();
+    if (cachedToken?.expires > now() + 60000) return cachedToken.token;
+    if (!tokenPromise) {
+      tokenPromise = api(`app/installations/${env.KEFANIA_GITHUB_INSTALLATION_ID}/access_tokens`, jwt(), { method: 'POST' })
+        .then(value => {
+          const expires = Date.parse(value.expires_at);
+          if (!value.token || !Number.isFinite(expires) || expires <= now() + 60000) throw new Error('GitHub returned an invalid installation token.');
+          cachedToken = { token: value.token, expires };
+          return cachedToken;
+        }).finally(() => { tokenPromise = undefined; });
+    }
+    return (await tokenPromise).token;
+  };
+  const request = async (endpoint, options) => {
+    const authorization = await token();
+    try { return await api(endpoint, authorization, options); }
+    catch (error) {
+      if (error.status === 401) cachedToken = undefined;
+      // Never retry a write automatically: GitHub may already have accepted it.
+      throw error;
+    }
+  };
+  request.status = async () => {
+    await request('installation/repositories?per_page=1');
+    return { githubLogin: `${(await app()).slug}[bot]`, githubAuth: 'app', installationId: env.KEFANIA_GITHUB_INSTALLATION_ID };
+  };
+  return request;
+}
+
+const appRequest = createAppRequest();
+export function githubRequest(endpoint, options) {
+  const mode = process.env.KEFANIA_GITHUB_AUTH || 'app';
+  if (mode === 'cli') return githubCliRequest(endpoint, options);
+  if (mode !== 'app') throw new Error('KEFANIA_GITHUB_AUTH must be app or cli.');
+  return appRequest(endpoint, options);
+}
+githubRequest.status = async () => {
+  const mode = process.env.KEFANIA_GITHUB_AUTH || 'app';
+  if (mode === 'cli') return { githubLogin: (await githubCliRequest('user')).login, githubAuth: 'cli' };
+  if (mode !== 'app') throw new Error('KEFANIA_GITHUB_AUTH must be app or cli.');
+  return appRequest.status();
+};
