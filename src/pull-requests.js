@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { githubRequest } from './github.js';
 
-export const FOOTER = '<p align="center"><a href="https://github.com/pony-factor/kefania"><img src="https://github.com/user-attachments/assets/2d5481b8-54dc-48c6-87e5-b67927d630bd" alt="This PR description was written automatically."></a></p>';
+export const FOOTER = '';
 export const rules = () => readFile(new URL('../PULL_REQUEST.md', import.meta.url), 'utf8');
 export const initialPromptBody = prompt => `## AI Prompt\n\n${prompt}`;
 
@@ -20,9 +20,9 @@ export function secretPath(filename) {
 }
 
 export function descriptionBody(body) {
-  const text = body.split(FOOTER).join('').trim();
+  const text = body.trim();
   if (!text) throw new Error('Write a substantive PR description before publishing.');
-  return `${text}\n\n${FOOTER}`;
+  return text;
 }
 
 function sourceComment(source) {
