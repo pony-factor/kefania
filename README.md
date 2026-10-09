@@ -4,6 +4,10 @@ Kefania supplies the GitHub tools requested by Sweetiebot's New PR button. The M
 
 The drafting model writes the title and description from repository evidence. Kefania reads the published branch comparison, publishes the PR, applies the description image from `PULL_REQUEST.md`, and records supplied conversation provenance in a separate comment. It never stages, commits, pushes, or merges repository changes.
 
+## Setup by client
+
+See **[the canonical Kafania MCP setup guide](docs/MCP_SETUP.md)** for VS Code stdio registration, ChatGPT plugins/Secure MCP Tunnel, authenticated HTTP, verification, and troubleshooting. VS Code registration does not make the tools available in a ChatGPT browser conversation.
+
 ## Local setup
 
 For Sweetiebot's PR button, the local runner uses your existing Codex ChatGPT login to draft, then publishes as the `codex-pony` GitHub App. It requires no OpenAI API key, HTTP listener, or tunnel. Install the Codex CLI and sign in with `codex login`; configure the GitHub App environment below. Keep this checkout beside the repository using Sweetiebot and install its dependencies with `npm ci --ignore-scripts`.
