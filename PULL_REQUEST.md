@@ -46,12 +46,6 @@ Omit testing and verification boilerplate for text-only changes. For functional 
 
 Do not describe commit authorship or imply that the repository changes themselves were generated automatically. The publication footer attributes only the PR description.
 
-## Description image
-
-End the description with exactly this centered, linked image; its attribution applies only to the PR description:
-
-<p align="center"><a href="https://github.com/pony-factor/kefania"><img src="https://github.com/user-attachments/assets/2d5481b8-54dc-48c6-87e5-b67927d630bd" alt="This PR description was written automatically."></a></p>
-
 ## Local Sweetiebot pony profile
 
 When the caller supplies a recognized Sweetiebot pony match, treat it as local chat enrichment only. It is completely separate from the pull request and must not appear in the PR title, description, comments, provenance metadata, or Kafania tool arguments.
@@ -80,9 +74,9 @@ When the source conversation text is available, add a brief one- or two-sentence
 
 Create a ready-for-review PR by default (`draft: false`). Use draft status only when the caller explicitly requests it.
 
-Prefer Kafania's `github_create_pull_request` tool when it is available. Let the tool own GitHub creation, duplicate-PR prevention, provenance-comment formatting, and the authorship footer. Do not claim that the current server preserves prompts in GitHub edit history.
+Prefer Kafania's `github_create_pull_request` tool when it is available. Let the tool own GitHub creation, duplicate-PR prevention, provenance-comment formatting, and the final PR description. Do not claim that the current server preserves prompts in GitHub edit history.
 
-If the configured Kafania tool is unavailable, use an available authenticated GitHub pull-request creation tool. Include the description image above exactly once in the submitted body. Resolve the repository and exact head and base from the caller, read the branch comparison, and check for an existing open PR for that head and base before creating another. Report the existing PR when one already exists.
+If the configured Kafania tool is unavailable, use an available authenticated GitHub pull-request creation tool. Resolve the repository and exact head and base from the caller, read the branch comparison, and check for an existing open PR for that head and base before creating another. Report the existing PR when one already exists.
 
 When publishing through the fallback, do not pass Kafania-only source fields to the GitHub creation tool. If actual conversation-source metadata was supplied, add a separate PR conversation comment after creation containing its kind, UUID, URL, and optional intent summary. Keep private or local source links in that comment, never in the PR description. If commenting fails, report that the PR exists and provenance recording failed; do not create another PR. Do not claim Kafania prompt-history preservation in the fallback.
 
