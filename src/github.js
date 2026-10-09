@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createSign } from 'node:crypto';
+import { loadAppEnvironment } from './app-credentials.js';
 
 // gh uses its existing login; credentials never enter tool arguments or logs.
 export function githubCliRequest(endpoint, { method = 'GET', body } = {}) {
@@ -66,7 +67,7 @@ export function createAppRequest({ env = process.env, fetchImpl = fetch, now = D
     catch { throw new Error('GitHub App returned an invalid response.'); }
   };
   const jwt = () => {
-    if (!env.KEFANIA_GITHUB_APP_ID || !/^\d+$/.test(env.KEFANIA_GITHUB_INSTALLATION_ID || '') || !env.KEFANIA_GITHUB_PRIVATE_KEY) {
+    if (!env.KEFANIA_GITHUB_APP_ID || !env.KEFANIA_GITHUB_PRIVATE_KEY) {
       throw new Error('Configure KEFANIA_GITHUB_APP_ID, KEFANIA_GITHUB_INSTALLATION_ID, and KEFANIA_GITHUB_PRIVATE_KEY for codex-pony. Supply credentials securely through the process environment.');
     }
     const seconds = Math.floor(now() / 1000);
@@ -89,6 +90,7 @@ export function createAppRequest({ env = process.env, fetchImpl = fetch, now = D
   };
   const token = async () => {
     await app();
+    if (!/^\d+$/.test(env.KEFANIA_GITHUB_INSTALLATION_ID || '')) throw new Error('Configure the GitHub App installation with npm run setup:github.');
     if (cachedToken?.expires > now() + 60000) return cachedToken.token;
     if (!tokenPromise) {
       tokenPromise = api(`app/installations/${env.KEFANIA_GITHUB_INSTALLATION_ID}/access_tokens`, jwt(), { method: 'POST' })
@@ -110,6 +112,15 @@ export function createAppRequest({ env = process.env, fetchImpl = fetch, now = D
       throw error;
     }
   };
+  request.installations = async () => {
+    await app();
+    const installations = [];
+    for (let page = 1; ; page++) {
+      const batch = await api(`app/installations?per_page=100&page=${page}`, jwt());
+      installations.push(...batch);
+      if (batch.length < 100) return installations;
+    }
+  };
   request.status = async () => {
     await request('installation/repositories?per_page=1');
     return { githubLogin: `${(await app()).slug}[bot]`, githubAuth: 'app', installationId: env.KEFANIA_GITHUB_INSTALLATION_ID };
@@ -117,16 +128,35 @@ export function createAppRequest({ env = process.env, fetchImpl = fetch, now = D
   return request;
 }
 
-const appRequest = createAppRequest();
-export function githubRequest(endpoint, options) {
-  const mode = process.env.KEFANIA_GITHUB_AUTH || 'app';
-  if (mode === 'cli') return githubCliRequest(endpoint, options);
-  if (mode !== 'app') throw new Error('KEFANIA_GITHUB_AUTH must be app or cli.');
-  return appRequest(endpoint, options);
+export function createGithubRequest({ env = process.env, appRequest, cliRequest = githubCliRequest } = {}) {
+  let selected, resolvedApp;
+  const getApp = async () => appRequest || (resolvedApp ||= createAppRequest({ env: await loadAppEnvironment(env) }));
+  const cliStatus = async () => ({ githubLogin: (await cliRequest('user')).login, githubAuth: 'cli' });
+  const choose = async () => {
+    const mode = env.KEFANIA_GITHUB_AUTH || 'auto';
+    if (mode === 'cli') return { request: cliRequest, status: cliStatus };
+    if (mode === 'app') { const app = await getApp(); return { request: app, status: app.status }; }
+    if (mode !== 'auto') throw new Error('KEFANIA_GITHUB_AUTH must be auto, app, or cli.');
+    if (!selected) {
+      selected = (async () => {
+        try {
+          const app = await getApp();
+          await app.status();
+          return { request: app, status: app.status };
+        } catch {
+          // Select the fallback before any repository write. Never replay a
+          // failed write under a different identity: it may have succeeded.
+          await cliStatus();
+          return { request: cliRequest, status: async () => ({ ...await cliStatus(),
+            fallbackFrom: 'app', fallbackReason: 'GitHub App credentials or installation access are unavailable.' }) };
+        }
+      })().catch(error => { selected = undefined; throw error; });
+    }
+    return selected;
+  };
+  const request = async (endpoint, options) => (await choose()).request(endpoint, options);
+  request.status = async () => (await choose()).status();
+  return request;
 }
-githubRequest.status = async () => {
-  const mode = process.env.KEFANIA_GITHUB_AUTH || 'app';
-  if (mode === 'cli') return { githubLogin: (await githubCliRequest('user')).login, githubAuth: 'cli' };
-  if (mode !== 'app') throw new Error('KEFANIA_GITHUB_AUTH must be app or cli.');
-  return appRequest.status();
-};
+
+export const githubRequest = createGithubRequest();

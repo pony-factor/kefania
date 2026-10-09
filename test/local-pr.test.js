@@ -15,7 +15,7 @@ test('local drafter passes the verified head and generated text to the gh publis
   assert.equal(published.expectedHeadSha, 'verified');
   assert.equal(published.title, '🛠️ Fix PR drafting');
   assert.deepEqual(published.source, source);
-  assert.equal(published.draft, true);
+  assert.equal(published.draft, false);
   assert.equal(result.url, 'https://github.com/owner/repo/pull/1');
 });
 

@@ -45,7 +45,7 @@ export function createMcpServer({ actions = createActions() } = {}) {
     inputSchema: { ...selection, expectedHeadSha: z.string().regex(/^[a-f0-9]{40}$/i),
       title: z.string().trim().min(1).max(256), body: z.string().trim().min(1).max(60000),
       prompt: z.string().min(1).max(60000).optional().describe('Original user prompt, preserved verbatim in GitHub edit history when supplied. This is published text; include only content the user authorized for GitHub.'),
-      draft: z.boolean().default(true), maintainerCanModify: z.boolean().default(true), source: source.optional() },
+      draft: z.boolean().default(false), maintainerCanModify: z.boolean().default(true), source: source.optional() },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   }, call(actions.create));
   server.registerTool('github_comment_pull_request_source', {

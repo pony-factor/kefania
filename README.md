@@ -8,7 +8,7 @@ The drafting model writes the title and description from repository evidence. Ke
 
 For Sweetiebot's PR button, the local runner uses your existing Codex ChatGPT login to draft, then publishes as the `codex-pony` GitHub App. It requires no OpenAI API key, HTTP listener, or tunnel. Install the Codex CLI and sign in with `codex login`; configure the GitHub App environment below. Keep this checkout beside the repository using Sweetiebot and install its dependencies with `npm ci --ignore-scripts`.
 
-The button passes the repository, head, base, and available conversation source to `src/local-pr.js`. The runner reads the published comparison through the GitHub App API, withholds secret-bearing patches, and asks a read-only Codex process for structured title/body text. Kefania then publishes a draft PR using the verified head SHA and existing duplicate and provenance handling. It never stages, commits, or pushes.
+The button passes the repository, head, base, and available conversation source to `src/local-pr.js`. The runner reads the published comparison through the GitHub App API, withholds secret-bearing patches, and asks a read-only Codex process for structured title/body text. Kefania then publishes a ready-for-review PR using the verified head SHA and existing duplicate and provenance handling. It never stages, commits, or pushes.
 
 To generate text without publishing, send a JSON request on stdin:
 
@@ -20,7 +20,7 @@ Omit `draftOnly` to draft and publish. The runner forces ChatGPT login and remov
 
 The MCP transports below remain available for clients that already use them.
 
-Install Node.js 20 or newer, configure the app environment, then run:
+Install Node.js 20 or newer. An existing `gh auth login` is sufficient for fallback access; configure the app when ready, then run:
 
 ```sh
 npm ci --ignore-scripts
@@ -35,15 +35,19 @@ code --add-mcp '{"name":"codex-drafter","command":"node","args":["/absolute/path
 
 ### GitHub App identity
 
-Kefania defaults to the `codex-pony` app installation for every GitHub request, including PR creation and provenance comments. Supply these variables securely through the process environment for both the MCP server and the local runner:
+Kefania currently has no server UI. On macOS, run `npm run setup:github` in this checkout for guided setup. The command asks for the app ID and downloaded private-key path, discovers installed accounts, verifies access, and stores credentials in macOS Keychain. Run it yourself locally; never paste the key into chat. Restart the MCP server after setup. Each new local PR process loads the stored configuration automatically.
+
+The setup command imports the selected private-key file directly into Keychain without displaying its contents. Normal operation reads credentials from Keychain or the process environment. No credential file is written by Kefania.
+
+Kefania defaults to automatic authentication: it prefers the `codex-pony` app installation and falls back to the existing GitHub CLI login when app setup or installation access is unavailable. The fallback publishes as the CLI account. Alternatively, supply these variables securely through the process environment for both the MCP server and the local runner:
 
 - `KEFANIA_GITHUB_APP_ID`: the app ID or client ID from the app settings.
 - `KEFANIA_GITHUB_INSTALLATION_ID`: the installation ID for the account owning the repositories.
 - `KEFANIA_GITHUB_PRIVATE_KEY`: the PEM private key, with actual newlines.
 
-Install the app on the target repositories with Contents read access and Pull requests and Issues write access. Kefania verifies the app slug, exchanges a signed JWT for an installation token, and refreshes it before expiry. It never reads credential files or logs credentials. Missing or invalid app configuration fails without falling back to a personal account. `kefania_status` reports the app bot identity and verifies installation access.
+Install the app on the target repositories with Contents read access and Pull requests and Issues write access. Kefania verifies the app slug, exchanges a signed JWT for an installation token, and refreshes it before expiry. It never logs credentials. Authentication is selected before publishing. Failed writes are never automatically replayed under another identity. `kefania_status` reports the app bot identity and verifies installation access.
 
-For an intentional personal-account setup, set `KEFANIA_GITHUB_AUTH=cli` and sign in with `gh auth login`. This explicitly restores the previous GitHub CLI authentication behavior; `GH_TOKEN` or `GITHUB_TOKEN` apply only in this mode.
+Set `KEFANIA_GITHUB_AUTH=app` to require the bot with no fallback. For a CLI-only setup, set `KEFANIA_GITHUB_AUTH=cli` and sign in with `gh auth login`. This explicitly restores the previous GitHub CLI authentication behavior; `GH_TOKEN` or `GITHUB_TOKEN` apply only in this mode.
 
 ## Tools
 
@@ -52,7 +56,7 @@ For an intentional personal-account setup, set `KEFANIA_GITHUB_AUTH=cli` and sig
 | `kefania_status` | Check GitHub access and repository scope without writing. |
 | `kefania_drafting_rules` | Read the canonical instructions. |
 | `github_get_pull_request_context` | Read the published branch comparison, return its head SHA and drafting rules. |
-| `github_create_pull_request` | Create a draft PR, or return the existing open PR for the same head/base. |
+| `github_create_pull_request` | Create a ready-for-review PR, or return the existing open PR for the same head/base. |
 | `github_comment_pull_request_source` | Record supplied originating conversation metadata once on an open PR. |
 | `github_create_issue` | Preserve a supplied prompt in edit history and publish the final issue text. |
 
@@ -60,7 +64,7 @@ The server also exposes `kefania://pull-request/rules` and the `draft_pull_reque
 
 Read the comparison before creating a PR and pass its `headSha` as `expectedHeadSha`. Creation rejects a changed head or a branch with no committed difference from the base. This version supports branches in the selected repository. Comparisons flag omitted, unavailable, or truncated patches; do not describe unseen changes as reviewed.
 
-PRs default to draft. Set `draft: false` to request a ready-for-review PR. The description image appears exactly once. The optional `prompt` argument is published verbatim under `## AI Prompt` and then replaced by the final description, preserving the original in GitHub edit history. Only supply text the user authorized for publication; source-conversation metadata belongs in the separate `source` argument. Issue creation requires `prompt`.
+PRs default to ready for review. Set `draft: true` explicitly through the MCP tool to request a draft PR. The description image appears exactly once. The optional `prompt` argument is published verbatim under `## AI Prompt` and then replaced by the final description, preserving the original in GitHub edit history. Only supply text the user authorized for publication; source-conversation metadata belongs in the separate `source` argument. Issue creation requires `prompt`.
 
 When description finalization or provenance recording fails after creation, the result retains the created PR or issue URL and identifies the failed step. Do not repeat creation to repair that step.
 

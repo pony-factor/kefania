@@ -43,12 +43,12 @@ test('context withholds secret contents and flags incomplete evidence', async ()
   assert(!JSON.stringify(context).includes('PRIVATE_RENAME'));
   assert.equal(context.files[2].patch, '+fixed');
 });
-test('creation appends attribution once and defaults to draft', async () => {
+test('creation appends attribution once and defaults to ready for review', async () => {
   const { actions, calls } = fixture();
   const result = await actions.create({ ...create, body: create.body + '\n' + FOOTER });
   assert.equal(result.url, pr.html_url);
   const published = calls.find(call => call.method === 'POST' && call.endpoint.endsWith('/pulls')).body;
-  assert.equal(published.draft, true);
+  assert.equal(published.draft, false);
   assert.equal(published.body.split(FOOTER).length - 1, 1);
   assert.throws(() => descriptionBody(FOOTER), /substantive/);
 });

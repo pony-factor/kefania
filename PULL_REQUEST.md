@@ -74,6 +74,8 @@ When the source conversation text is available, add a brief one- or two-sentence
 
 ## Publishing
 
+Create a ready-for-review PR by default (`draft: false`). Use draft status only when the caller explicitly requests it.
+
 Prefer Kafania's `github_create_pull_request` tool when it is available. Let the tool own GitHub creation, duplicate-PR prevention, provenance-comment formatting, and the authorship footer. Do not claim that the current server preserves prompts in GitHub edit history.
 
 If the configured Kafania tool is unavailable, use an available authenticated GitHub pull-request creation tool. Include the description image above exactly once in the submitted body. Resolve the repository and exact head and base from the caller, read the branch comparison, and check for an existing open PR for that head and base before creating another. Report the existing PR when one already exists.

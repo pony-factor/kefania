@@ -61,3 +61,29 @@ test('a failed write is not retried and authentication is refreshed on the next 
   await request('repos/example/demo/pulls');
   assert.equal(calls.filter(call => call.endpoint.endsWith('/access_tokens')).length, 2);
 });
+
+test('automatic mode falls back before publishing when the app is unavailable', async () => {
+  const { createGithubRequest } = await import('../src/github.js');
+  const calls = [];
+  const app = () => assert.fail('Unavailable app must not publish');
+  app.status = async () => { throw new Error('Missing app setup'); };
+  const request = createGithubRequest({ env: {}, appRequest: app, cliRequest: async (endpoint, options) => {
+    calls.push({ endpoint, options });
+    return endpoint === 'user' ? { login: 'example-user' } : { number: 42 };
+  } });
+  const result = await request('repos/example/demo/pulls', { method: 'POST' });
+  assert.equal(result.number, 42);
+  assert.equal(calls[0].endpoint, 'user');
+  assert.equal(calls.filter(call => call.options?.method === 'POST').length, 1);
+  assert.equal((await request.status()).fallbackFrom, 'app');
+});
+test('explicit app mode and uncertain app writes never fall back', async () => {
+  const { createGithubRequest } = await import('../src/github.js');
+  const app = async () => { throw new Error('Write timed out'); };
+  app.status = async () => ({ githubAuth: 'app' });
+  for (const mode of ['auto', 'app']) {
+    const request = createGithubRequest({ env: { KEFANIA_GITHUB_AUTH: mode }, appRequest: app,
+      cliRequest: () => assert.fail('Must not retry a write through gh') });
+    await assert.rejects(request('repos/example/demo/pulls', { method: 'POST' }), /Write timed out/);
+  }
+});

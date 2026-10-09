@@ -104,7 +104,7 @@ export function createActions({ request = githubRequest, allowedRepositories = [
         const currentSha = (await request(`${root}/commits/${encodeURIComponent(args.head)}`)).sha;
         if (currentSha !== args.expectedHeadSha) throw new Error('The head changed since drafting. Read the comparison again before publishing.');
         const finalBody = descriptionBody(args.body);
-        const payload = { title: args.title, body: args.prompt === undefined ? finalBody : initialPromptBody(args.prompt), head: args.head, base: args.base, draft: args.draft ?? true,
+        const payload = { title: args.title, body: args.prompt === undefined ? finalBody : initialPromptBody(args.prompt), head: args.head, base: args.base, draft: args.draft ?? false,
           maintainer_can_modify: args.maintainerCanModify ?? true };
         try { pr = await request(`${root}/pulls`, { method: 'POST', body: payload }); }
         catch (error) {

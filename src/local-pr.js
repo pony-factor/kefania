@@ -62,7 +62,7 @@ export async function runLocalPullRequest(input, { actions = createActions(), dr
   ].join('\n\n');
   const generated = draftSchema.parse(await draft(prompt));
   if (args.draftOnly) return { ...generated, body: descriptionBody(generated.body), headSha: context.headSha, published: false };
-  return actions.create({ ...selection, ...generated, expectedHeadSha: context.headSha, source: args.source, draft: true });
+  return actions.create({ ...selection, ...generated, expectedHeadSha: context.headSha, source: args.source, draft: false });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
