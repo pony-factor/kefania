@@ -19,13 +19,13 @@ test('local drafter passes the verified head and generated text to the gh publis
   assert.equal(result.url, 'https://github.com/owner/repo/pull/1');
 });
 
-test('draft-only performs no write and includes the footer', async () => {
+test('draft-only performs no write and returns an unadorned description', async () => {
   const result = await runLocalPullRequest({ repository: 'owner/repo', head: 'branch', draftOnly: true }, {
     actions: { async context() { return { aheadBy: 1, headSha: 'verified' }; }, async create() { assert.fail('Must not publish'); } },
     async draft() { return { title: '🛠️ Fix PR drafting', body: 'Explain the change.' }; },
   });
   assert.equal(result.published, false);
-  assert.match(result.body, /This PR description was written automatically/);
+  assert.equal(result.body, 'Explain the change.');
 });
 
 test('empty comparison and invalid model output cannot publish', async () => {
