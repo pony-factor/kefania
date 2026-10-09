@@ -6,6 +6,20 @@ The drafting model writes the title and description from repository evidence. Ke
 
 ## Local setup
 
+For Sweetiebot's PR button, the local runner uses your existing Codex ChatGPT login to draft, then publishes through the GitHub CLI. It requires no OpenAI API key, HTTP listener, or tunnel. Install the Codex CLI and sign in with `codex login`; sign in to GitHub with `gh auth login`. Keep this checkout beside the repository using Sweetiebot and install its dependencies with `npm ci --ignore-scripts`.
+
+The button passes the repository, head, base, and available conversation source to `src/local-pr.js`. The runner reads the published comparison through `gh`, withholds secret-bearing patches, and asks a read-only Codex process for structured title/body text. Kefania then publishes a draft PR using the verified head SHA and existing duplicate and provenance handling. It never stages, commits, or pushes.
+
+To generate text without publishing, send a JSON request on stdin:
+
+```sh
+printf '%s\n' '{"repository":"owner/repo","head":"branch","base":"main","draftOnly":true}' | npm run --silent pr:local
+```
+
+Omit `draftOnly` to draft and publish. The runner forces ChatGPT login and removes API-key environment variables from the drafting process. Codex runs locally but inference uses your ChatGPT plan. See the [Codex authentication documentation](https://learn.chatgpt.com/docs/auth).
+
+The MCP transports below remain available for clients that already use them.
+
 Install Node.js 20 or newer and the GitHub CLI. Sign in with `gh auth login` if needed, then run:
 
 ```sh

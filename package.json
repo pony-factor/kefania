@@ -9,6 +9,7 @@
     "start": "node src/index.js",
     "stdio": "node src/index.js",
     "start:http": "node src/index.js --http",
+    "pr:local": "node src/local-pr.js",
     "test": "node --test"
   },
   "dependencies": {
