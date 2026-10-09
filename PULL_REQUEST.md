@@ -66,6 +66,8 @@ When image search or browsing is available, include useful show stills and fando
 
 Keep this local profile neat rather than exhaustive: enough detail to answer “who is this pony?” without turning every PR creation into a full character article.
 
+**Alternate identities:** When a matched character has a verified secret identity, disguise, alter ego, stage persona, transformed form, or recognizable nickname, explicitly name it in the short description of who the pony is and explain the relationship, not just in an alias list. For example, Daring Do writes as A.K. Yearling; Coloratura performs as Countess Coloratura and is nicknamed Rara; Princess Luna becomes Nightmare Moon in the television continuity. If a persona is shared, say so: the Mysterious Mare Do Well is portrayed by multiple ponies, not one separate individual. Distinguish these identity types and their continuities, and never equate unrelated characters, counterparts, or unsupported fan theories.
+
 ## Conversation provenance
 
 If the caller supplies conversation-source metadata, pass it through the Kafania pull-request tool instead of rewriting it.
