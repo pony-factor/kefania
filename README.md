@@ -4,6 +4,10 @@ Kefania supplies the GitHub tools requested by Sweetiebot's New PR button. The M
 
 The drafting model writes the title and description from repository evidence. Kefania reads the published branch comparison, publishes the PR, applies the description image from `PULL_REQUEST.md`, and records supplied conversation provenance in a separate comment. It never stages, commits, pushes, or merges repository changes.
 
+## Setup by client
+
+See **[the canonical Kafania MCP setup guide](docs/MCP_SETUP.md)** for VS Code stdio registration, ChatGPT plugins/Secure MCP Tunnel, authenticated HTTP, verification, and troubleshooting. VS Code registration does not make the tools available in a ChatGPT browser conversation.
+
 ## Local setup
 
 Install Node.js 20 or newer and the GitHub CLI. Sign in with `gh auth login` if needed, then run:

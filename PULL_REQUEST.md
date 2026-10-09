@@ -60,6 +60,8 @@ Publish the pull request normally first. After a successful publication, add a c
 
 The profile should make a crowded cast easy to remember. Prefer a short conversational description of who the character is and why someone might recognize them, then cover the most useful available details: canon or fandom naming history, how the name became attached to the character, notable episode/film/comic appearances, speaking status and voice actor when known, aliases or production names, and distinctive visual or story context. Clearly distinguish official names from merchandise, credits, scripts, production labels, wiki conventions, and fan-created names.
 
+Be precise about **canon and continuity**: a character can be canonical to a particular work, adaptation, or fan-created continuity without belonging to another franchise's official continuity. Do not call a character “non-canon,” “fan-only,” or “official” solely because a wiki describes a production or because a character is familiar or unfamiliar. Verify which continuity the claim concerns, prefer primary episode/creator evidence when available, and acknowledge uncertainty or a user-provided correction rather than confidently contradicting it.
+
 When image search or browsing is available, include useful show stills and fandom artwork or image results when they can be sourced. Favor recognizable images over generic search clutter and preserve source or artist attribution when available. Never invent an image, artist, appearance, line, or voice credit.
 
 Keep this local profile neat rather than exhaustive: enough detail to answer “who is this pony?” without turning every PR creation into a full character article.
