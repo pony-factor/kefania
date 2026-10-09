@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { githubRequest } from './github.js';
+import { loadPreferences, writingInstructions } from './preferences.js';
 
 export const FOOTER = '';
-export const rules = () => readFile(new URL('../PULL_REQUEST.md', import.meta.url), 'utf8');
+export const rules = async () => (await readFile(new URL('../PULL_REQUEST.md', import.meta.url), 'utf8')) + '\n\n' + writingInstructions(await loadPreferences());
 export const initialPromptBody = prompt => `## AI Prompt\n\n${prompt}`;
 
 function repository({ owner, repo }, allowedRepositories) {
