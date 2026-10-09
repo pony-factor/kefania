@@ -40,8 +40,8 @@ test('publishing an existing PR adds the supplied conversation once', async () =
   assert.match(comments[0].body, /Explain a GitHub change/);
 });
 
-test('PR attribution appears exactly once when supplied in the draft', () => {
-  const description = descriptionBody('Summary of work.\n\n' + FOOTER);
-  assert.equal(description.split(FOOTER).length - 1, 1);
-  assert.match(description, /^Summary of work\./);
+test('PR description is unchanged and does not inject an image', () => {
+  const description = descriptionBody('Summary of work.');
+  assert.equal(description, 'Summary of work.');
+  assert.equal(FOOTER, '');
 });
