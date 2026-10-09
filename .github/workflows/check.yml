@@ -22,3 +22,14 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Run tests
         run: npm test
+      - name: Install Chromium test driver
+        run: python -m pip install playwright
+      - name: Verify rendered setup in Chromium
+        run: python scripts/browser-smoke.py
+      - name: Save browser verification image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kefania-browser-smoke
+          path: artifacts/kefania-browser-smoke.png
+          if-no-files-found: ignore
