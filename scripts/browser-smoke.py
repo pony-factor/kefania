@@ -29,7 +29,7 @@ try:
             page = browser.new_page(viewport={"width": 1280, "height": 920}, device_scale_factor=1)
             page.on("dialog", lambda dialog: dialog.accept())
             page.goto(url, wait_until="networkidle")
-            expect(page.get_by_role("heading", name="Kefania")).to_be_visible()
+            expect(page.get_by_role("heading", name="Kefania", exact=True)).to_be_visible()
             expect(page.get_by_role("heading", name="Choose where Kefania can work")).to_be_visible()
             expect(page.locator("#connection-state")).to_contain_text("gh CLI fallback")
             page.get_by_role("button", name="Connect GitHub").click()
