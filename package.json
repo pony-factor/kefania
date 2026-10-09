@@ -12,7 +12,7 @@
     "pr:local": "node src/local-pr.js",
     "setup:github": "node src/setup-github.js",
     "setup:web": "node src/setup-web.js",
-    "test": "node --test"
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
