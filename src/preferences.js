@@ -4,7 +4,7 @@ import { join, dirname } from 'node:path';
 import { randomBytes } from 'node:crypto';
 
 export const preferencesPath = () => join(homedir(), '.config', 'kefania', 'preferences.json');
-const defaults = Object.freeze({ length: 'balanced', tone: 'professional', instructions: '', repositories: [], selectedRepository: '' });
+const defaults = Object.freeze({ length: 'balanced', tone: 'professional', instructions: '', repositories: [], selectedRepository: '', clientId: '' });
 const lengths = ['concise', 'balanced', 'detailed'];
 const tones = ['professional', 'conversational', 'formal'];
 const repoName = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
@@ -15,12 +15,14 @@ export function validatePreferences(value) {
   const length = value.length ?? defaults.length, tone = value.tone ?? defaults.tone;
   const instructions = value.instructions ?? '', repositories = value.repositories ?? [];
   const selectedRepository = value.selectedRepository ?? '';
+  const clientId = value.clientId ?? '';
   if (!lengths.includes(length) || !tones.includes(tone)) throw new Error('Choose a supported writing style.');
   if (typeof instructions !== 'string' || instructions.length > 8000) throw new Error('Instructions must be under 8,000 characters.');
   if (!Array.isArray(repositories) || repositories.length > 100 || repositories.some(name => typeof name !== 'string' || !repoName.test(name))) throw new Error('Select valid repositories.');
+  if (typeof clientId !== 'string' || (clientId && !/^[A-Za-z0-9_-]{8,128}$/.test(clientId))) throw new Error('Enter a valid GitHub App Client ID.');
   if (typeof selectedRepository !== 'string' || (selectedRepository && !repoName.test(selectedRepository))) throw new Error('Choose a valid repository.');
   if (selectedRepository && !repositories.includes(selectedRepository)) throw new Error('Selected repository must be in your chosen list.');
-  return { length, tone, instructions, repositories: [...new Set(repositories)], selectedRepository };
+  return { length, tone, instructions, repositories: [...new Set(repositories)], selectedRepository, clientId };
 }
 
 export async function loadPreferences({ path = preferencesPath(), read = readFile } = {}) {
