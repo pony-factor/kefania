@@ -2,13 +2,14 @@ import { readFile, writeFile, mkdir, rename, chmod } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { defaultOllamaSettings, validateOllamaSettings } from './ollama-settings.js';
 
 export const preferencesPath = () => join(homedir(), '.config', 'kefania', 'preferences.json');
 const defaults = Object.freeze({ length: 'balanced', tone: 'professional', instructions: '', repositories: [], selectedRepository: '', clientId: '' });
 const lengths = ['concise', 'balanced', 'detailed'];
 const tones = ['professional', 'conversational', 'formal'];
 const repoName = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
-export const defaultPreferences = () => ({ ...defaults, repositories: [] });
+export const defaultPreferences = () => ({ ...defaults, repositories: [], ollama: defaultOllamaSettings() });
 
 export function validatePreferences(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid writing preferences.');
@@ -22,7 +23,8 @@ export function validatePreferences(value) {
   if (typeof clientId !== 'string' || (clientId && !/^[A-Za-z0-9_-]{8,128}$/.test(clientId))) throw new Error('Enter a valid GitHub App Client ID.');
   if (typeof selectedRepository !== 'string' || (selectedRepository && !repoName.test(selectedRepository))) throw new Error('Choose a valid repository.');
   if (selectedRepository && !repositories.includes(selectedRepository)) throw new Error('Selected repository must be in your chosen list.');
-  return { length, tone, instructions, repositories: [...new Set(repositories)], selectedRepository, clientId };
+  return { length, tone, instructions, repositories: [...new Set(repositories)], selectedRepository, clientId,
+    ollama: validateOllamaSettings(value.ollama) };
 }
 
 export async function loadPreferences({ path = preferencesPath(), read = readFile } = {}) {

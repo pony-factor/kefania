@@ -94,7 +94,27 @@
           </div>
           <label for="instructions">Your instructions</label>
           <textarea id="instructions" rows="5" maxlength="8000" placeholder="For example: Prefer short paragraphs; avoid generic testing sections."></textarea>
-          <p class="subtle">These choices apply to both MCP and local Codex drafting. Kefania still follows its evidence and safety rules.</p>
+          <p class="subtle">These choices apply to PR drafting. Kefania still follows its evidence and safety rules.</p>
+          <details id="ollama-setup">
+            <summary>Ollama fallback</summary>
+            <p class="subtle">Sweetiebot tries ChatGPT first, then the Codex CLI. If Codex drafting fails, Kefania uses your local Ollama model. Browser drafts already completed are published directly.</p>
+            <label class="repo-item"><input id="ollama-enabled" type="checkbox" checked><span>Use Ollama when Codex drafting fails</span></label>
+            <label for="ollama-url">Local Ollama server</label>
+            <input id="ollama-url" type="url" value="http://127.0.0.1:11434">
+            <label for="ollama-model">Model</label>
+            <input id="ollama-model" type="text" list="ollama-models" value="qwen2.5-coder:7b" maxlength="200">
+            <datalist id="ollama-models"></datalist>
+            <button type="button" id="ollama-refresh" class="secondary">Refresh installed models</button>
+            <p id="ollama-message" class="message" role="status" aria-live="polite"></p>
+            <div class="fields">
+              <div><label for="ollama-temperature">Temperature</label><input id="ollama-temperature" type="number" min="0" max="2" step="0.1" value="0.2"></div>
+              <div><label for="ollama-context">Context tokens</label><input id="ollama-context" type="number" min="1024" max="262144" step="1024" value="32768"></div>
+              <div><label for="ollama-output">Output tokens</label><input id="ollama-output" type="number" min="128" max="32768" value="4096"></div>
+              <div><label for="ollama-timeout">Timeout in seconds</label><input id="ollama-timeout" type="number" min="5" max="1800" value="300"></div>
+              <div><label for="ollama-thinking">Thinking</label><select id="ollama-thinking"><option value="default">Model default</option><option value="on">On, if supported</option><option value="off">Off</option></select></div>
+            </div>
+            <p class="subtle">Save preferences below to apply these settings. Models must already be installed in Ollama.</p>
+          </details>
           <button type="button" id="save" class="primary">Save preferences</button>
           <p id="save-message" class="message" role="status" aria-live="polite"></p>
         </div>

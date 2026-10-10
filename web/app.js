@@ -105,6 +105,13 @@ async function getConnection() {
   byId('length').value = settings.length;
   byId('tone').value = settings.tone;
   byId('instructions').value = settings.instructions;
+  const ollama = settings.ollama || {};
+  byId('ollama-enabled').checked = ollama.enabled !== false;
+  for (const [id, key] of [['ollama-url', 'baseUrl'], ['ollama-model', 'model'],
+    ['ollama-temperature', 'temperature'], ['ollama-context', 'numCtx'], ['ollama-output', 'numPredict'],
+    ['ollama-timeout', 'timeoutSeconds'], ['ollama-thinking', 'think']]) {
+    if (ollama[key] !== undefined) byId(id).value = ollama[key];
+  }
   setConnection(payload.connection);
   await refreshRepositories();
 }
@@ -114,8 +121,24 @@ function newPreferences() {
   return { length: byId('length').value, tone: byId('tone').value,
     instructions: byId('instructions').value, repositories: names,
     selectedRepository: names.includes(selectedRepository) ? selectedRepository : '',
-    clientId: byId('client-id').value.trim() };
+    clientId: byId('client-id').value.trim(),
+    ollama: { enabled: byId('ollama-enabled').checked, baseUrl: byId('ollama-url').value.trim(),
+      model: byId('ollama-model').value.trim(), temperature: Number(byId('ollama-temperature').value),
+      numCtx: Number(byId('ollama-context').value), numPredict: Number(byId('ollama-output').value),
+      timeoutSeconds: Number(byId('ollama-timeout').value), think: byId('ollama-thinking').value } };
 }
+byId('ollama-refresh').addEventListener('click', async () => {
+  const button = byId('ollama-refresh');
+  button.disabled = true;
+  message('ollama-message', 'Checking local models…');
+  try {
+    const result = await api('ollama/models', { baseUrl: byId('ollama-url').value.trim() });
+    const list = byId('ollama-models');
+    list.replaceChildren(...result.models.map(name => new Option(name, name)));
+    message('ollama-message', result.models.length ? 'Installed models: ' + result.models.join(', ') : 'No text-generation models installed.', 'success');
+  } catch (error) { message('ollama-message', error.message, 'error'); }
+  finally { button.disabled = false; }
+});
 byId('save').addEventListener('click', async () => {
   const button = byId('save');
   button.disabled = true;

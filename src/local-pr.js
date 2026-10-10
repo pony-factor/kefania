@@ -6,6 +6,9 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { createActions, descriptionBody, rules } from './pull-requests.js';
+import { draftSchema, outputSchema } from './draft-schema.js';
+import { loadPreferences } from './preferences.js';
+import { draftWithOllama } from './ollama.js';
 
 const inputSchema = z.object({
   repository: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
@@ -17,9 +20,6 @@ const inputSchema = z.object({
   expectedHeadSha: z.string().regex(/^[a-f0-9]{40}$/).optional(),
   preparedDraft: z.object({ title: z.string().trim().min(1).max(256), body: z.string().trim().min(1).max(60000) }).optional(),
 });
-const draftSchema = z.object({ title: z.string().trim().min(1).max(256), body: z.string().trim().min(1).max(60000) });
-const outputSchema = { type: 'object', properties: { title: { type: 'string' }, body: { type: 'string' } },
-  required: ['title', 'body'], additionalProperties: false };
 
 export async function draftWithCodex(prompt) {
   const directory = await mkdtemp(join(tmpdir(), 'kefania-draft-'));
@@ -50,7 +50,18 @@ export async function draftWithCodex(prompt) {
   } finally { await rm(directory, { recursive: true, force: true }); }
 }
 
-export async function runLocalPullRequest(input, { actions = createActions(), draft = draftWithCodex } = {}) {
+export async function draftWithFallback(prompt, { codex = draftWithCodex, ollama = draftWithOllama,
+  preferences = loadPreferences } = {}) {
+  try { return draftSchema.parse(await codex(prompt)); }
+  catch (codexError) {
+    const settings = (await preferences()).ollama;
+    if (settings?.enabled === false) throw codexError;
+    try { return draftSchema.parse(await ollama(prompt, settings)); }
+    catch (error) { throw new Error('Codex CLI drafting failed; Ollama fallback also failed. ' + error.message); }
+  }
+}
+
+export async function runLocalPullRequest(input, { actions = createActions(), draft = draftWithFallback } = {}) {
   const args = inputSchema.parse(input);
   const [owner, repo] = args.repository.split('/');
   const selection = { owner, repo, head: args.head, base: args.base };
