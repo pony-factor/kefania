@@ -97,7 +97,7 @@
           <p class="subtle">These choices apply to PR drafting. Kefania still follows its evidence and safety rules.</p>
           <details id="ollama-setup">
             <summary>Ollama fallback</summary>
-            <p class="subtle">Sweetiebot tries ChatGPT first, then the Codex CLI. If Codex drafting fails, Kefania uses your local Ollama model. Browser drafts already completed are published directly.</p>
+            <p class="subtle">Sweetiebot tries ChatGPT first, then the Codex CLI with its latest recommended available model and medium reasoning. If Codex drafting fails, Kefania uses your local Ollama model. Browser drafts already completed are published directly.</p>
             <label class="repo-item"><input id="ollama-enabled" type="checkbox" checked><span>Use Ollama when Codex drafting fails</span></label>
             <label for="ollama-url">Local Ollama server</label>
             <input id="ollama-url" type="url" value="http://127.0.0.1:11434">

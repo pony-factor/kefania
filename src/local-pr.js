@@ -9,6 +9,7 @@ import { createActions, descriptionBody, rules } from './pull-requests.js';
 import { draftSchema, outputSchema } from './draft-schema.js';
 import { loadPreferences } from './preferences.js';
 import { draftWithOllama } from './ollama.js';
+import { discoverCodexModel } from './codex-model.js';
 
 const inputSchema = z.object({
   repository: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
@@ -21,7 +22,7 @@ const inputSchema = z.object({
   preparedDraft: z.object({ title: z.string().trim().min(1).max(256), body: z.string().trim().min(1).max(60000) }).optional(),
 });
 
-export async function draftWithCodex(prompt) {
+export async function draftWithCodex(prompt, { discoverModel = discoverCodexModel, spawnProcess = spawn } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'kefania-draft-'));
   try {
     const schema = join(directory, 'schema.json'), output = join(directory, 'answer.json');
@@ -30,9 +31,11 @@ export async function draftWithCodex(prompt) {
     // Use the existing ChatGPT login, never an API-key billing fallback.
     delete env.OPENAI_API_KEY;
     delete env.CODEX_API_KEY;
+    const model = await discoverModel({ cwd: directory, env });
     await new Promise((resolve, reject) => {
-      const child = spawn(process.env.KEFANIA_CODEX_COMMAND || 'codex', [
+      const child = spawnProcess(process.env.KEFANIA_CODEX_COMMAND || 'codex', [
         'exec', '--ignore-user-config', '-c', 'forced_login_method="chatgpt"',
+        '--model', model, '-c', 'model_reasoning_effort="medium"',
         '-c', 'features.shell_tool=false', '--sandbox', 'read-only', '--ephemeral',
         '--skip-git-repo-check', '--output-schema', schema, '--output-last-message', output, '-',
       ], { cwd: directory, env, stdio: ['pipe', 'ignore', 'pipe'] });

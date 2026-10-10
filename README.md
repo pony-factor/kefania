@@ -20,7 +20,7 @@ To generate text without publishing, send a JSON request on stdin:
 printf '%s\n' '{"repository":"owner/repo","head":"branch","base":"main","draftOnly":true}' | npm run --silent pr:local
 ```
 
-Omit `draftOnly` to draft and publish. The runner forces ChatGPT login and removes API-key environment variables from the drafting process. Codex runs locally but inference uses your ChatGPT plan. See the [Codex authentication documentation](https://learn.chatgpt.com/docs/auth).
+Omit `draftOnly` to draft and publish. The runner forces ChatGPT login and removes API-key environment variables from the drafting process. On every draft, it queries the CLI's available model catalog, selects its recommended model (following any available recommended upgrade), and explicitly uses **medium reasoning**. No model version is pinned. If discovery fails or that model does not support medium, the Ollama fallback applies. Codex runs locally but inference uses your ChatGPT plan. See the [Codex authentication documentation](https://learn.chatgpt.com/docs/auth).
 
 The MCP transports below remain available for clients that already use them.
 
