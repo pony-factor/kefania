@@ -26,15 +26,14 @@ export function createBotSetup({ platform = process.platform, appFactory = creat
       expiryTimer.unref();
       return { installations };
     },
-    async finish({ installationId } = {}) {
+    async finish() {
       const setup = pending;
       clear();
       if (!setup || now() >= setup.expiresAt) throw new Error('Bot setup expired. Select the private-key file again.');
-      if (!setup.installations.some(item => item.id === installationId)) throw new Error('Choose an installation from the list.');
       const app = appFactory({ env: { KEFANIA_GITHUB_APP_ID: setup.appId,
-        KEFANIA_GITHUB_PRIVATE_KEY: setup.privateKey, KEFANIA_GITHUB_INSTALLATION_ID: installationId } });
+        KEFANIA_GITHUB_PRIVATE_KEY: setup.privateKey } });
       const status = await app.status();
-      await save({ appId: setup.appId, privateKey: setup.privateKey, installationId });
+      await save({ appId: setup.appId, privateKey: setup.privateKey });
       return { githubLogin: status.githubLogin, githubAuth: 'app' };
     },
   };

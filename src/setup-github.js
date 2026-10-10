@@ -21,13 +21,9 @@ try {
   const app = createAppRequest({ env: { KEFANIA_GITHUB_APP_ID: appId, KEFANIA_GITHUB_PRIVATE_KEY: privateKey } });
   const installations = (await app.installations()).filter(item => !item.suspended_at);
   if (!installations.length) throw new Error('Install codex-pony on the target account first: https://github.com/settings/apps/codex-pony/installations');
-  installations.forEach((item, index) => console.log(`${index + 1}. ${item.account.login} (installation ${item.id})`));
-  const index = installations.length === 1 ? 0 : Number(await terminal.question('Choose installation number: ')) - 1;
-  if (!Number.isInteger(index) || !installations[index]) throw new Error('Invalid installation selection.');
-  const installationId = String(installations[index].id);
-  const request = createAppRequest({ env: { KEFANIA_GITHUB_APP_ID: appId, KEFANIA_GITHUB_INSTALLATION_ID: installationId, KEFANIA_GITHUB_PRIVATE_KEY: privateKey } });
-  await request.status();
-  await saveAppCredentials({ appId, installationId, privateKey });
+  console.log('Found installations for: ' + installations.map(item => item.account.login).join(', '));
+  await app.status();
+  await saveAppCredentials({ appId, privateKey });
   console.log('Saved in macOS Keychain. Restart the Kefania MCP server. New local PR runs will use codex-pony automatically.');
 } catch (error) {
   console.error(error.message);

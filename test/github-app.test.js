@@ -13,7 +13,7 @@ function fixture({ slug = 'codex-pony', failWrite = false } = {}) {
   const request = createAppRequest({ env, now: () => time, fetchImpl: async (url, options) => {
     const endpoint = url.replace('https://api.github.com/', '');
     calls.push({ endpoint, options });
-    if (endpoint === 'app' || endpoint.endsWith('/access_tokens')) {
+    if (endpoint === 'app' || endpoint.endsWith('/access_tokens') || endpoint.endsWith('/installation') || endpoint.startsWith('app/installations?')) {
       const jwt = options.headers.Authorization.slice(7), [header, payload, signature] = jwt.split('.');
       const verifier = createVerify('RSA-SHA256');
       verifier.update(`${header}.${payload}`);
@@ -21,6 +21,8 @@ function fixture({ slug = 'codex-pony', failWrite = false } = {}) {
       const claims = JSON.parse(Buffer.from(payload, 'base64url'));
       assert.equal(claims.iss, '123');
       assert(claims.iat < time / 1000 && claims.exp > time / 1000 && claims.exp < time / 1000 + 600);
+      if (endpoint.startsWith('app/installations?')) return { ok: true, json: async () => [{ id: 456, account: { login: 'example' }, permissions: { contents: 'read', pull_requests: 'write', issues: 'write' } }] };
+      if (endpoint.endsWith('/installation')) return { ok: true, json: async () => ({ id: 456 }) };
       return { ok: true, json: async () => endpoint === 'app' ? { slug } : {
         token: `fixture-${++tokens}`, expires_at: new Date(time + 3600000).toISOString() } };
     }
@@ -40,12 +42,13 @@ test('app JWT exchange, shared refresh, and comment requests use installation id
   assert.equal(calls.filter(call => call.endpoint.endsWith('/access_tokens')).length, 2);
   assert.equal(JSON.parse(calls.find(call => call.endpoint.endsWith('/comments')).options.body).body, 'Comment');
 });
-test('status checks installation access rather than the user endpoint', async () => {
+test('status discovers all installations rather than using the user endpoint', async () => {
   const { request, calls } = fixture();
   const status = await createActions({ request }).status();
   assert.equal(status.githubLogin, 'codex-pony[bot]');
   assert.equal(status.githubAuth, 'app');
-  assert(calls.some(call => call.endpoint.startsWith('installation/repositories')));
+  assert(calls.some(call => call.endpoint.startsWith('app/installations?')));
+  assert.equal(status.automaticInstallation, true);
   assert(!calls.some(call => call.endpoint === 'user'));
 });
 test('missing credentials and wrong app fail before repository writes', async () => {
@@ -86,4 +89,48 @@ test('explicit app mode and uncertain app writes never fall back', async () => {
       cliRequest: () => assert.fail('Must not retry a write through gh') });
     await assert.rejects(request('repos/example/demo/pulls', { method: 'POST' }), /Write timed out/);
   }
+});
+
+test('bot routes each repository to its installation, shares tokens per installation, and lists all repositories', async () => {
+  const authorizations = [], exchanges = [];
+  const installations = [{ id: 11, account: { login: 'first' }, permissions: { contents: 'read', pull_requests: 'write' } },
+    { id: 22, account: { login: 'second' }, permissions: {} }];
+  const request = createAppRequest({ env, fetchImpl: async (url, options) => {
+    const endpoint = url.replace('https://api.github.com/', '');
+    const result = value => ({ ok: true, json: async () => value });
+    if (endpoint === 'app') return result({ slug: 'codex-pony' });
+    if (endpoint.startsWith('app/installations?')) return result(installations);
+    if (endpoint === 'repos/first/project/installation') return result(installations[0]);
+    if (endpoint === 'repos/second/project/installation') return result(installations[1]);
+    if (endpoint === 'repos/missing/project/installation') return { ok: false, status: 404 };
+    const id = endpoint.match(/^app\/installations\/(\d+)\/access_tokens$/)?.[1];
+    if (id) {
+      exchanges.push(id);
+      return result({ token: 'fixture-installation-' + id, expires_at: new Date(Date.now() + 3600000).toISOString() });
+    }
+    const authorization = options.headers.Authorization;
+    if (endpoint.startsWith('installation/repositories')) {
+      const owner = authorization.endsWith('-11') ? 'first' : 'second';
+      return result({ repositories: [{ full_name: owner + '/project' }] });
+    }
+    authorizations.push({ endpoint, authorization, method: options.method });
+    return result({ number: 42 });
+  } });
+  await Promise.all([request('repos/first/project/pulls'), request('repos/second/project/pulls'), request('repos/first/project/commits/main')]);
+  assert.deepEqual(exchanges.sort(), ['11', '22']);
+  assert(authorizations.filter(item => item.endpoint.includes('/first/')).every(item => item.authorization.endsWith('-11')));
+  assert(authorizations.filter(item => item.endpoint.includes('/second/')).every(item => item.authorization.endsWith('-22')));
+  const repos = await request.repositories();
+  assert.equal(repos.length, 2);
+  assert.equal(repos[0].canCreatePullRequest, true, 'Bot can create PRs without Git push permission');
+  assert.equal(repos[1].canCreatePullRequest, false);
+  const status = await request.status();
+  assert.equal(status.installations.length, 2);
+  assert(status.installations[1].missingPermissions.includes('Pull requests: read/write'));
+  const { createGithubRequest } = await import('../src/github.js');
+  const automatic = createGithubRequest({ env: {}, appRequest: request,
+    userRequest: Object.assign(() => assert.fail('Must not change author'), { status: () => assert.fail('Must not change author') }),
+    cliRequest: () => assert.fail('Must not change author') });
+  await assert.rejects(automatic('repos/missing/project/pulls', { method: 'POST' }), /Install codex-pony on this repository/);
+  assert(!authorizations.some(item => item.method === 'POST'), 'Missing installation cannot publish');
 });

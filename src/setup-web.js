@@ -8,6 +8,7 @@ import { githubDeviceAuthorization } from './user-auth.js';
 import { loadPreferences, savePreferences, validatePreferences } from './preferences.js';
 import { runLocalPullRequest } from './local-pr.js';
 import { createBotSetup } from './bot-setup.js';
+import { defaultClientId } from './app-settings.js';
 
 const allowed = (process.env.KEFANIA_ALLOWED_REPOSITORIES || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 const token = randomBytes(32).toString('hex');
@@ -47,7 +48,7 @@ export function createSetupServer({ github = githubRequest, authorization = gith
     const repos = await github.repositories();
     return repos.filter(item => validName.test(item.full_name || '')
         && (!allowed.length || allowed.includes(item.full_name.toLowerCase())))
-      .map(item => ({ name: item.full_name, canPush: Boolean(item.permissions?.push) }))
+      .map(item => ({ name: item.full_name, canPush: item.canCreatePullRequest ?? Boolean(item.permissions?.push) }))
       .sort((a, b) => a.name.localeCompare(b.name));
   };
   return createServer(async (req, res) => {
@@ -73,9 +74,11 @@ export function createSetupServer({ github = githubRequest, authorization = gith
         return res.end(html);
       }
       if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
-        return json(200, { csrf: token, settings: await preferences.load(), connection: await connection() });
+        const settings = await preferences.load();
+        return json(200, { csrf: token, settings: { ...settings, clientId: settings.clientId || defaultClientId() }, connection: await connection() });
       }
       if (req.method === 'GET' && url.pathname === '/api/repositories') {
+        github.reset();
         return json(200, { repositories: await repositories() });
       }
       if (req.method !== 'POST' || !url.pathname.startsWith('/api/')) return json(404, { error: 'Not found.' });
@@ -94,7 +97,7 @@ export function createSetupServer({ github = githubRequest, authorization = gith
       }
       if (url.pathname === '/api/connect') {
         const current = await preferences.load();
-        const clientId = input.clientId || current.clientId || process.env.KEFANIA_GITHUB_CLIENT_ID || '';
+        const clientId = input.clientId || current.clientId || defaultClientId();
         const flow = await authorization.start(clientId);
         await preferences.save({ ...current, clientId });
         return json(200, flow);

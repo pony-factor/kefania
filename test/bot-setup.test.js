@@ -10,7 +10,7 @@ const makeApp = ({ env }) => ({
   installations: async () => [{ id: 123, account: { login: 'example' } },
     { id: 456, account: { login: 'suspended' }, suspended_at: '2026-01-01' }],
   status: async () => {
-    assert.equal(env.KEFANIA_GITHUB_INSTALLATION_ID, '123');
+    assert.equal(env.KEFANIA_GITHUB_INSTALLATION_ID, undefined);
     return { githubLogin: 'codex-pony[bot]', githubAuth: 'app' };
   },
 });
@@ -24,17 +24,18 @@ test('bot setup validates installation before saving, returns no credentials, an
   const result = await setup.finish({ installationId: '123' });
   assert.deepEqual(result, { githubLogin: 'codex-pony[bot]', githubAuth: 'app' });
   assert.equal(saved.privateKey, privateKey);
-  assert.equal(saved.installationId, '123');
+  assert.equal(saved.installationId, undefined);
   await assert.rejects(setup.finish({ installationId: '123' }), /expired/);
 });
 
-test('invalid keys, unsupported platforms, unlisted installations and expired setup never save', async () => {
+test('invalid keys, unsupported platforms, cleared and expired setup never save', async () => {
   let now = 0;
   const setup = createBotSetup({ platform: 'darwin', appFactory: makeApp, now: () => now,
     save: async () => assert.fail('Invalid setup must not save') });
   await assert.rejects(setup.start({ appId: '4871148', privateKey: 'invalid' }), /valid RSA/);
   await setup.start({ appId: '4871148', privateKey });
-  await assert.rejects(setup.finish({ installationId: '456' }), /Choose an installation/);
+  setup.clear();
+  await assert.rejects(setup.finish(), /expired/);
   await setup.start({ appId: '4871148', privateKey });
   now = 300000;
   await assert.rejects(setup.finish({ installationId: '123' }), /expired/);
