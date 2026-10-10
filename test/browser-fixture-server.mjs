@@ -1,11 +1,13 @@
 // Browser-only fixture. No GitHub API calls, tokens, private keys or PR writes.
 import { createSetupServer } from '../src/setup-web.js';
 let connected = false;
+let botConnected = false;
 let preferences = { length: 'balanced', tone: 'professional', instructions: '',
   clientId: 'Iv123456789', repositories: [], selectedRepository: '' };
 const server = createSetupServer({
   github: {
-    status: async () => ({ githubAuth: connected ? 'user' : 'cli', githubLogin: connected ? 'sample-user' : 'sample-fallback' }),
+    status: async () => ({ githubAuth: botConnected ? 'app' : connected ? 'user' : 'cli',
+      githubLogin: botConnected ? 'codex-pony[bot]' : connected ? 'sample-user' : 'sample-fallback' }),
     repositories: async () => [{ full_name: 'example/demo', permissions: { push: true } },
       { full_name: 'example/read-only', permissions: { push: false } }],
     reset: () => {},
@@ -16,6 +18,11 @@ const server = createSetupServer({
     disconnect: async () => { connected = false; },
   },
   preferences: { load: async () => preferences, save: async value => { preferences = value; return value; } },
+  botSetup: {
+    start: async () => ({ installations: [{ id: '123', account: 'example' }] }),
+    finish: async () => { botConnected = true; return { githubLogin: 'codex-pony[bot]', githubAuth: 'app' }; },
+    clear: () => {},
+  },
   draftPr: async input => input.draftOnly
     ? { title: '🖌️ Preview test changes', body: 'Preview-only description.', published: false }
     : { number: 42, url: 'https://github.com/example/demo/pull/42', existing: false },

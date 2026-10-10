@@ -165,7 +165,7 @@ export function createGithubRequest({ env = process.env, appRequest, userRequest
   };
   const request = async (endpoint, options) => (await choose()).request(endpoint, options);
   request.status = async () => (await choose()).status();
-  request.reset = () => { selected = undefined; };
+  request.reset = () => { selected = undefined; resolvedApp = undefined; };
   request.repositories = async () => {
     const provider = await choose();
     if (provider.method === 'user') return provider.request.repositories();

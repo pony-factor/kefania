@@ -7,6 +7,7 @@ import { githubRequest } from './github.js';
 import { githubDeviceAuthorization } from './user-auth.js';
 import { loadPreferences, savePreferences, validatePreferences } from './preferences.js';
 import { runLocalPullRequest } from './local-pr.js';
+import { createBotSetup } from './bot-setup.js';
 
 const allowed = (process.env.KEFANIA_ALLOWED_REPOSITORIES || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 const token = randomBytes(32).toString('hex');
@@ -33,7 +34,8 @@ async function readBody(req) {
 }
 
 export function createSetupServer({ github = githubRequest, authorization = githubDeviceAuthorization,
-  preferences = { load: loadPreferences, save: savePreferences }, draftPr = runLocalPullRequest } = {}) {
+  preferences = { load: loadPreferences, save: savePreferences }, draftPr = runLocalPullRequest,
+  botSetup = createBotSetup() } = {}) {
   // A random CSRF token is returned only to same-origin callers; it is not a GitHub credential.
   const matchesToken = received => typeof received === 'string' && received.length === token.length
     && timingSafeEqual(Buffer.from(received), Buffer.from(token));
@@ -79,6 +81,17 @@ export function createSetupServer({ github = githubRequest, authorization = gith
       if (req.method !== 'POST' || !url.pathname.startsWith('/api/')) return json(404, { error: 'Not found.' });
       if (!matchesToken(req.headers['x-kefania-csrf'])) return json(403, { error: 'Reload the setup page and try again.' });
       const input = await readBody(req);
+      if (url.pathname === '/api/bot/start' || url.pathname === '/api/bot/finish') {
+        try {
+          if (url.pathname === '/api/bot/start') return json(200, await botSetup.start(input));
+          const bot = await botSetup.finish(input);
+          github.reset();
+          return json(200, { bot, connection: await connection() });
+        } catch {
+          // Never reflect credential input or upstream errors into the browser.
+          return json(400, { error: 'Bot setup failed. Check the App ID, RSA PEM file, installation access, and macOS Keychain. Select the file again to retry.' });
+        }
+      }
       if (url.pathname === '/api/connect') {
         const current = await preferences.load();
         const clientId = input.clientId || current.clientId || process.env.KEFANIA_GITHUB_CLIENT_ID || '';
@@ -121,7 +134,7 @@ export function createSetupServer({ github = githubRequest, authorization = gith
     } catch (error) {
       return json(400, { error: errorMessage(error) });
     }
-  });
+  }).on('close', () => botSetup.clear());
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

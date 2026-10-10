@@ -36,6 +36,14 @@ try:
             expect(page.locator("#auth-code")).to_have_text("ABCD-EFGH")
             expect(page.locator("#connection-state")).to_contain_text("sample-user", timeout=10000)
             expect(page.locator("#authorization")).to_be_hidden()
+            page.locator('#bot-setup summary').click()
+            page.locator('#bot-key').set_input_files({"name": "fixture.pem", "mimeType": "text/plain", "buffer": b"fixture-only-no-real-key"})
+            page.get_by_role('button', name='Find installations').click()
+            expect(page.locator('#bot-installation')).to_have_value('123')
+            expect(page.locator('#bot-key')).to_have_value('')
+            page.get_by_role('button', name='Save bot connection').click()
+            expect(page.locator('#connection-state')).to_contain_text('codex-pony[bot]')
+            expect(page.locator('#bot-message')).to_contain_text('macOS Keychain')
             assert page.locator("#repo-list input:disabled").count() == 1
             page.locator('#repo-list input[value="example/demo"]').check()
             page.locator("#default-repo").select_option("example/demo")
@@ -55,7 +63,7 @@ try:
             expect(page.locator("#pr-result")).to_contain_text("PR #42")
             assert not page.locator("#pr-result").inner_text().find("This PR description was written automatically.") >= 0
             page.screenshot(path=str(ARTIFACTS / "kefania-browser-smoke.png"), full_page=True)
-            print("Chromium rendered setup, completed mock authorization, persisted settings, and previewed/published with fixtures.")
+            print("Chromium verified account and bot setup, cleared file input, persisted settings, and previewed/published with fixtures.")
         finally:
             browser.close()
 finally:

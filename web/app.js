@@ -153,6 +153,39 @@ byId('disconnect').addEventListener('click', async () => {
   } catch (error) { message('connect-message', error.message, 'error'); }
 });
 byId('refresh-repos').addEventListener('click', refreshRepositories);
+byId('bot-key').addEventListener('change', () => { byId('bot-installations').hidden = true; });
+byId('bot-app-id').addEventListener('input', () => { byId('bot-installations').hidden = true; });
+byId('bot-find').addEventListener('click', async () => {
+  const button = byId('bot-find');
+  button.disabled = true;
+  byId('bot-installations').hidden = true;
+  message('bot-message', 'Checking the App and its installations…');
+  try {
+    const file = byId('bot-key').files[0];
+    if (!file || file.size > 16000) throw new Error('Select a private-key PEM file smaller than 16 KB.');
+    const privateKey = await file.text();
+    byId('bot-key').value = '';
+    const result = await api('bot/start', { appId: byId('bot-app-id').value.trim(), privateKey });
+    const select = byId('bot-installation');
+    select.replaceChildren();
+    for (const installation of result.installations) select.append(new Option(installation.account, installation.id));
+    byId('bot-installations').hidden = false;
+    message('bot-message', 'Choose the account or organization, then save within five minutes.');
+  } catch (error) { message('bot-message', error.message, 'error'); }
+  finally { byId('bot-key').value = ''; button.disabled = false; }
+});
+byId('bot-save').addEventListener('click', async () => {
+  const button = byId('bot-save');
+  button.disabled = true;
+  message('bot-message', 'Verifying access and saving in Keychain…');
+  try {
+    const result = await api('bot/finish', { installationId: byId('bot-installation').value });
+    setConnection(result.connection);
+    message('bot-message', 'Saved ' + result.bot.githubLogin + ' in macOS Keychain. New local PR runs use the bot; restart any running Kefania MCP server.', 'success');
+    await refreshRepositories();
+  } catch (error) { message('bot-message', error.message, 'error'); }
+  finally { byId('bot-installations').hidden = true; button.disabled = false; }
+});
 async function runPr(preview) {
   const button = byId(preview ? 'preview' : 'publish');
   if (!preview && !window.confirm('Publish a ready-for-review pull request on GitHub?')) return;
