@@ -2,7 +2,7 @@
 
 Kefania supplies the GitHub tools requested by Sweetiebot's New PR button. The MCP server identifies itself as `codex-drafter`. It runs locally over stdio or over authenticated Streamable HTTP.
 
-The drafting model writes the title and description from repository evidence. Kefania reads the published branch comparison, publishes the PR, applies the description image from `PULL_REQUEST.md`, and records supplied conversation provenance in a separate comment. It never stages, commits, pushes, or merges repository changes.
+The drafting model writes the title and description from repository evidence. Kefania reads the published branch comparison, publishes the PR, publishes the final description without an automatic footer image, and records supplied conversation provenance in a separate comment. It never stages, commits, pushes, or merges repository changes.
 
 ## Setup by client
 
@@ -10,7 +10,7 @@ See **[the canonical Kafania MCP setup guide](docs/MCP_SETUP.md)** for VS Code s
 
 ## Local setup
 
-For Sweetiebot's PR button, the local runner uses your existing Codex ChatGPT login to draft, then publishes as the `codex-pony` GitHub App. It requires no OpenAI API key, HTTP listener, or tunnel. Install the Codex CLI and sign in with `codex login`; configure the GitHub App environment below. Keep this checkout beside the repository using Sweetiebot and install its dependencies with `npm ci --ignore-scripts`.
+For Sweetiebot's PR button, the local runner uses your existing Codex ChatGPT login to draft, then publishes using your authorized GitHub user session, the `codex-pony` GitHub App bot, or your existing `gh` login. It requires no OpenAI API key, HTTP listener, or tunnel. Install the Codex CLI and sign in with `codex login`; connect GitHub using the browser setup below. Keep this checkout beside the repository using Sweetiebot and install its dependencies with `npm ci --ignore-scripts`.
 
 The button passes the repository, head, base, and available conversation source to `src/local-pr.js`. The runner reads the published comparison through the GitHub App API, withholds secret-bearing patches, and asks a read-only Codex process for structured title/body text. Kefania then publishes a ready-for-review PR using the verified head SHA and existing duplicate and provenance handling. It never stages, commits, or pushes.
 
@@ -37,21 +37,27 @@ npm start
 code --add-mcp '{"name":"codex-drafter","command":"node","args":["/absolute/path/to/kefania/src/index.js"]}'
 ```
 
-### GitHub App identity
+### Browser setup and GitHub identity
 
-Kefania currently has no server UI. On macOS, run `npm run setup:github` in this checkout for guided setup. The command asks for the app ID and downloaded private-key path, discovers installed accounts, verifies access, and stores credentials in macOS Keychain. Run it yourself locally; never paste the key into chat. Restart the MCP server after setup. Each new local PR process loads the stored configuration automatically.
+Launch the local setup page:
 
-The setup command imports the selected private-key file directly into Keychain without displaying its contents. Normal operation reads credentials from Keychain or the process environment. No credential file is written by Kefania.
+```sh
+npm run setup:web
+```
 
-Kefania defaults to automatic authentication: it prefers the `codex-pony` app installation and falls back to the existing GitHub CLI login when app setup or installation access is unavailable. The fallback publishes as the CLI account. Alternatively, supply these variables securely through the process environment for both the MCP server and the local runner:
+Open **http://127.0.0.1:8766/**. The interface guides you through GitHub authorization, repository selection, PR writing voice and length, editable instructions, and a safe local preview. It serves only on the local loopback address, not as a published website. To use another port set `KEFANIA_SETUP_PORT`.
 
-- `KEFANIA_GITHUB_APP_ID`: the app ID or client ID from the app settings.
-- `KEFANIA_GITHUB_INSTALLATION_ID`: the installation ID for the account owning the repositories.
-- `KEFANIA_GITHUB_PRIVATE_KEY`: the PEM private key, with actual newlines.
+For the preferred user-account flow, an administrator of the **codex-pony** GitHub App must enable **Device Flow** in the app's settings. Enter the app's **public Client ID** (not its numeric App ID) in the page's Developer setup field. The administrator must also grant Contents (read), Pull requests (read/write), Issues (read/write), and Metadata (read) repository permissions, then install the app on the desired repositories. [GitHub's user authorization guide](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app) documents the device flow. The user clicks **Connect GitHub**, opens GitHub's device-authorization page, enters the displayed one-time code, and approves access. Kefania polls for completion within GitHub's rate limits. No private key, client secret, or personal access token is entered in the browser.
 
-Install the app on the target repositories with Contents read access and Pull requests and Issues write access. Kefania verifies the app slug, exchanges a signed JWT for an installation token, and refreshes it before expiry. It never logs credentials. Authentication is selected before publishing. Failed writes are never automatically replayed under another identity. `kefania_status` reports the app bot identity and verifies installation access.
+GitHub user sessions are stored in **macOS Keychain**, with no token placed in URLs, logs, files, or browser storage. On non-macOS systems, user sessions remain in memory only and must be reauthorized for a new process; use the existing authenticated `gh` CLI fallback for persistent local workflows there. In the local UI, the only persisted file is `~/.config/kefania/preferences.json`, containing **non-secret** style, public app client ID, and chosen repository names.
 
-Set `KEFANIA_GITHUB_AUTH=app` to require the bot with no fallback. For a CLI-only setup, set `KEFANIA_GITHUB_AUTH=cli` and sign in with `gh auth login`. This explicitly restores the previous GitHub CLI authentication behavior; `GH_TOKEN` or `GITHUB_TOKEN` apply only in this mode.
+**Attribution:** A PR published with the authorized **user** session shows that GitHub user as the creator. The installation-token path publishes as `codex-pony[bot]`. A CLI fallback PR is attributed to the active `gh` user. GitHub's own commit authorship is independent of the PR creator. In automatic mode, Kefania chooses the user connection first, then the existing App installation, then `gh`; it selects the identity before any write and never retries a failed write under another identity.
+
+The existing bot path still works on macOS through `npm run setup:github` or environment variables `KEFANIA_GITHUB_APP_ID`, `KEFANIA_GITHUB_INSTALLATION_ID`, and `KEFANIA_GITHUB_PRIVATE_KEY`. This *legacy bot-only option* uses a private key; it is no longer required for the recommended user connection. Set `KEFANIA_GITHUB_AUTH=user` to require human attribution, `app` to require bot attribution, or `cli` for the CLI-only fallback. Keep credentials in your process environment or Keychain, not source or repository files.
+
+The style settings are appended as **supplemental drafting instructions** to the canonical policy and read by **both** `github_get_pull_request_context`/MCP prompt generation and `src/local-pr.js` on every run. They cannot supersede repository-diff evidence or publication safeguards. Preview from the browser uses `draftOnly` and does not create a GitHub PR. The explicit Publish action runs the existing local Codex drafter and publisher.
+
+
 
 ## Tools
 
@@ -68,7 +74,7 @@ The server also exposes `kefania://pull-request/rules` and the `draft_pull_reque
 
 Read the comparison before creating a PR and pass its `headSha` as `expectedHeadSha`. Creation rejects a changed head or a branch with no committed difference from the base. This version supports branches in the selected repository. Comparisons flag omitted, unavailable, or truncated patches; do not describe unseen changes as reviewed.
 
-PRs default to ready for review. Set `draft: true` explicitly through the MCP tool to request a draft PR. The description image appears exactly once. The optional `prompt` argument is published verbatim under `## AI Prompt` and then replaced by the final description, preserving the original in GitHub edit history. Only supply text the user authorized for publication; source-conversation metadata belongs in the separate `source` argument. Issue creation requires `prompt`.
+PRs default to ready for review. Set `draft: true` explicitly through the MCP tool to request a draft PR. PR descriptions have no automatic image or footer. The optional `prompt` argument is published verbatim under `## AI Prompt` and then replaced by the final description, preserving the original in GitHub edit history. Only supply text the user authorized for publication; source-conversation metadata belongs in the separate `source` argument. Issue creation requires `prompt`.
 
 When description finalization or provenance recording fails after creation, the result retains the created PR or issue URL and identifies the failed step. Do not repeat creation to repair that step.
 
@@ -90,6 +96,6 @@ Local VS Code registration makes the server available to VS Code's MCP clients. 
 
 ## Verification
 
-`npm test` exercises MCP startup and discovery, authenticated HTTP, repository scope, exact prompt preservation, duplicate PR prevention, changed-head rejection, attribution, and provenance failures. GitHub writes in tests use fixtures. Live setup verification can call `kefania_status` and a read-only branch comparison without publishing anything.
+`npm test` exercises MCP startup and discovery, authenticated HTTP, repository scope, exact prompt preservation, duplicate PR prevention, changed-head rejection, attribution, browser authorization, preferences, and provenance failures. GitHub writes in tests use fixtures. Live setup verification can call `kefania_status` and a read-only branch comparison without publishing anything.
 
 Transport implementation follows the [official MCP SDK server guidance](https://ts.sdk.modelcontextprotocol.io/server).

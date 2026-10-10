@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createSign } from 'node:crypto';
 import { loadAppEnvironment } from './app-credentials.js';
+import { githubUserRequest } from './user-auth.js';
 
 // gh uses its existing login; credentials never enter tool arguments or logs.
 export function githubCliRequest(endpoint, { method = 'GET', body } = {}) {
@@ -128,27 +129,35 @@ export function createAppRequest({ env = process.env, fetchImpl = fetch, now = D
   return request;
 }
 
-export function createGithubRequest({ env = process.env, appRequest, cliRequest = githubCliRequest } = {}) {
+export function createGithubRequest({ env = process.env, appRequest, userRequest = githubUserRequest, cliRequest = githubCliRequest } = {}) {
   let selected, resolvedApp;
   const getApp = async () => appRequest || (resolvedApp ||= createAppRequest({ env: await loadAppEnvironment(env) }));
   const cliStatus = async () => ({ githubLogin: (await cliRequest('user')).login, githubAuth: 'cli' });
   const choose = async () => {
     const mode = env.KEFANIA_GITHUB_AUTH || 'auto';
-    if (mode === 'cli') return { request: cliRequest, status: cliStatus };
-    if (mode === 'app') { const app = await getApp(); return { request: app, status: app.status }; }
-    if (mode !== 'auto') throw new Error('KEFANIA_GITHUB_AUTH must be auto, app, or cli.');
+    if (mode === 'cli') return { request: cliRequest, status: cliStatus, method: 'cli' };
+    if (mode === 'user') return { request: userRequest, status: userRequest.status, method: 'user' };
+    if (mode === 'app') { const app = await getApp(); return { request: app, status: app.status, method: 'app' }; }
+    if (mode !== 'auto') throw new Error('KEFANIA_GITHUB_AUTH must be auto, user, app, or cli.');
     if (!selected) {
       selected = (async () => {
         try {
+          await userRequest.status();
+          return { request: userRequest, status: userRequest.status, method: 'user' };
+        } catch {
+          // A user must have a working connection before any write; do not
+          // silently switch identities after a failed user-authorized write.
+        }
+        try {
           const app = await getApp();
           await app.status();
-          return { request: app, status: app.status };
+          return { request: app, status: app.status, method: 'app' };
         } catch {
           // Select the fallback before any repository write. Never replay a
           // failed write under a different identity: it may have succeeded.
           await cliStatus();
           return { request: cliRequest, status: async () => ({ ...await cliStatus(),
-            fallbackFrom: 'app', fallbackReason: 'GitHub App credentials or installation access are unavailable.' }) };
+            fallbackFrom: 'app', fallbackReason: 'No authorized GitHub user or App installation is available.' }), method: 'cli' };
         }
       })().catch(error => { selected = undefined; throw error; });
     }
@@ -156,6 +165,22 @@ export function createGithubRequest({ env = process.env, appRequest, cliRequest 
   };
   const request = async (endpoint, options) => (await choose()).request(endpoint, options);
   request.status = async () => (await choose()).status();
+  request.reset = () => { selected = undefined; };
+  request.repositories = async () => {
+    const provider = await choose();
+    if (provider.method === 'user') return provider.request.repositories();
+    const results = [];
+    for (let page = 1; page <= 10; page++) {
+      const endpoint = provider.method === 'app'
+        ? 'installation/repositories?per_page=100&page=' + page
+        : 'user/repos?per_page=100&page=' + page + '&affiliation=owner,collaborator,organization_member';
+      const response = await provider.request(endpoint);
+      const batch = Array.isArray(response) ? response : (response.repositories || []);
+      results.push(...batch);
+      if (batch.length < 100) break;
+    }
+    return results;
+  };
   return request;
 }
 

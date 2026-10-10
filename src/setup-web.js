@@ -1,0 +1,135 @@
+#!/usr/bin/env node
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
+import { githubRequest } from './github.js';
+import { githubDeviceAuthorization } from './user-auth.js';
+import { loadPreferences, savePreferences, validatePreferences } from './preferences.js';
+import { runLocalPullRequest } from './local-pr.js';
+
+const allowed = (process.env.KEFANIA_ALLOWED_REPOSITORIES || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
+const token = randomBytes(32).toString('hex');
+const files = {
+  '/': new URL('../web/index.html', import.meta.url),
+  '/app.js': new URL('../web/app.js', import.meta.url),
+  '/style.css': new URL('../web/style.css', import.meta.url),
+};
+const mime = { '/': 'text/html; charset=utf-8', '/app.js': 'text/javascript; charset=utf-8',
+  '/style.css': 'text/css; charset=utf-8' };
+const validName = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
+
+const errorMessage = error => error instanceof Error && typeof error.message === 'string'
+  ? error.message.slice(0, 300) : 'The request could not be completed.';
+
+async function readBody(req) {
+  let text = '';
+  for await (const chunk of req) {
+    text += chunk;
+    if (text.length > 20000) throw new Error('Request is too large.');
+  }
+  try { return JSON.parse(text || '{}'); }
+  catch { throw new Error('Please check the supplied values.'); }
+}
+
+export function createSetupServer({ github = githubRequest, authorization = githubDeviceAuthorization,
+  preferences = { load: loadPreferences, save: savePreferences }, draftPr = runLocalPullRequest } = {}) {
+  // A random CSRF token is returned only to same-origin callers; it is not a GitHub credential.
+  const matchesToken = received => typeof received === 'string' && received.length === token.length
+    && timingSafeEqual(Buffer.from(received), Buffer.from(token));
+  const connection = async () => {
+    try { return { connected: true, ...await github.status() }; }
+    catch { return { connected: false, hint: 'Connect GitHub or sign in with gh auth login.' }; }
+  };
+  const repositories = async () => {
+    const repos = await github.repositories();
+    return repos.filter(item => validName.test(item.full_name || '')
+        && (!allowed.length || allowed.includes(item.full_name.toLowerCase())))
+      .map(item => ({ name: item.full_name, canPush: Boolean(item.permissions?.push) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  };
+  return createServer(async (req, res) => {
+    const host = req.headers.host || '';
+    const hostName = host.split(':')[0];
+    const origin = req.headers.origin || '';
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
+    const json = (status, result) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(result)); };
+    if (!['127.0.0.1', 'localhost'].includes(hostName)
+      || (origin && !['http://127.0.0.1:' + host.split(':')[1], 'http://localhost:' + host.split(':')[1]].includes(origin))
+      || req.headers['sec-fetch-site'] === 'cross-site') {
+      return json(403, { error: 'Open Kefania from its local setup URL.' });
+    }
+    const url = new URL(req.url || '/', 'http://127.0.0.1');
+    try {
+      if (req.method === 'GET' && files[url.pathname] && !url.search) {
+        const html = await readFile(files[url.pathname]);
+        res.writeHead(200, { 'Content-Type': mime[url.pathname] });
+        return res.end(html);
+      }
+      if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
+        return json(200, { csrf: token, settings: await preferences.load(), connection: await connection() });
+      }
+      if (req.method === 'GET' && url.pathname === '/api/repositories') {
+        return json(200, { repositories: await repositories() });
+      }
+      if (req.method !== 'POST' || !url.pathname.startsWith('/api/')) return json(404, { error: 'Not found.' });
+      if (!matchesToken(req.headers['x-kefania-csrf'])) return json(403, { error: 'Reload the setup page and try again.' });
+      const input = await readBody(req);
+      if (url.pathname === '/api/connect') {
+        const current = await preferences.load();
+        const clientId = input.clientId || current.clientId || process.env.KEFANIA_GITHUB_CLIENT_ID || '';
+        const flow = await authorization.start(clientId);
+        await preferences.save({ ...current, clientId });
+        return json(200, flow);
+      }
+      if (url.pathname === '/api/poll') {
+        const result = await authorization.poll();
+        if (result.connected) { github.reset(); return json(200, { ...result, connection: await connection() }); }
+        return json(200, result);
+      }
+      if (url.pathname === '/api/disconnect') {
+        await authorization.disconnect();
+        github.reset();
+        return json(200, { connection: await connection() });
+      }
+      if (url.pathname === '/api/preferences') {
+        const settings = validatePreferences(input);
+        // Selection is only a preference; an actual request is always authorized separately.
+        const saved = await preferences.save(settings);
+        return json(200, { settings: saved });
+      }
+      if (url.pathname === '/api/pr') {
+        const settings = await preferences.load();
+        const repository = input.repository || settings.selectedRepository;
+        if (!validName.test(repository || '') || !settings.repositories.includes(repository)
+          || (allowed.length && !allowed.includes(repository.toLowerCase()))) {
+          throw new Error('Select an authorized repository and save your choices first.');
+        }
+        if (typeof input.head !== 'string' || !input.head.trim() || input.head.length > 255
+          || typeof input.base !== 'string' || !input.base.trim() || input.base.length > 255) {
+          throw new Error('Enter a published head branch and a base branch.');
+        }
+        const result = await draftPr({ repository, head: input.head.trim(), base: input.base.trim(),
+          draftOnly: input.preview === true });
+        return json(200, result);
+      }
+      return json(404, { error: 'Not found.' });
+    } catch (error) {
+      return json(400, { error: errorMessage(error) });
+    }
+  });
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const port = Number(process.env.KEFANIA_SETUP_PORT || 8766);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('KEFANIA_SETUP_PORT must be a valid port.');
+  const server = createSetupServer();
+  server.listen(port, '127.0.0.1', () => {
+    console.log('Open Kefania setup at http://127.0.0.1:' + port + '/');
+  });
+  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close());
+}
