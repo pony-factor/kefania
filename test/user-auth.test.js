@@ -69,19 +69,49 @@ test('user API refreshes an expiring device-flow session and never retries faile
   assert.equal(saved.refreshToken, 'rotated');
 });
 
-test('automatic auth chooses user account before app or CLI and resets cleanly', async () => {
+test('automatic auth prefers the bot even with a working user connection and resets cleanly', async () => {
+  const calls = [];
+  const app = async endpoint => { calls.push(endpoint); return { repositories: [{ full_name: 'example/project' }] }; };
+  app.status = async () => ({ githubAuth: 'app', githubLogin: 'codex-pony[bot]' });
+  const user = async () => assert.fail('Should not use user');
+  user.status = async () => assert.fail('Should not select user');
+  const request = createGithubRequest({ env: {}, userRequest: user, appRequest: app,
+    cliRequest: () => assert.fail('Should not use gh') });
+  assert.equal((await request.status()).githubAuth, 'app');
+  assert.equal((await request.repositories())[0].full_name, 'example/project');
+  await request('repos/example/project/pulls', { method: 'POST' });
+  assert.equal(calls.at(-1), 'repos/example/project/pulls');
+  request.reset();
+  assert.equal((await request.status()).githubLogin, 'codex-pony[bot]');
+});
+
+test('automatic auth falls back to user before CLI when the bot is unavailable', async () => {
   const calls = [];
   const user = async endpoint => { calls.push(endpoint); return { ok: true }; };
   user.status = async () => ({ githubAuth: 'user', githubLogin: 'alice' });
   user.repositories = async () => [{ full_name: 'alice/project' }];
-  const app = async () => assert.fail('Should not use bot');
-  app.status = async () => assert.fail('Should not select bot');
+  const app = async () => assert.fail('Unavailable bot must not publish');
+  app.status = async () => { throw new Error('Missing app setup'); };
   const request = createGithubRequest({ env: { KEFANIA_GITHUB_AUTH: 'auto' }, userRequest: user,
     appRequest: app, cliRequest: () => assert.fail('Should not use gh') });
   assert.equal((await request.status()).githubAuth, 'user');
+  assert.equal((await request.status()).fallbackFrom, 'app');
   assert.equal((await request.repositories())[0].full_name, 'alice/project');
   await request('repos/alice/project/pulls');
   assert.equal(calls[0], 'repos/alice/project/pulls');
   request.reset();
   assert.equal((await request.status()).githubLogin, 'alice');
+});
+
+test('explicit user mode bypasses the bot and failed user writes never change identity', async () => {
+  const user = async () => { throw new Error('Write timed out'); };
+  user.status = async () => ({ githubAuth: 'user', githubLogin: 'alice' });
+  const app = async () => assert.fail('Must not replay write as bot');
+  app.status = async () => { throw new Error('Missing app setup'); };
+  for (const mode of ['auto', 'user']) {
+    const request = createGithubRequest({ env: { KEFANIA_GITHUB_AUTH: mode }, appRequest: app,
+      userRequest: user, cliRequest: () => assert.fail('Must not replay write through gh') });
+    await assert.rejects(request('repos/alice/project/pulls', { method: 'POST' }), /Write timed out/);
+    assert.equal((await request.status()).githubAuth, 'user');
+  }
 });

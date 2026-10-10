@@ -142,16 +142,16 @@ export function createGithubRequest({ env = process.env, appRequest, userRequest
     if (!selected) {
       selected = (async () => {
         try {
-          await userRequest.status();
-          return { request: userRequest, status: userRequest.status, method: 'user' };
-        } catch {
-          // A user must have a working connection before any write; do not
-          // silently switch identities after a failed user-authorized write.
-        }
-        try {
           const app = await getApp();
           await app.status();
           return { request: app, status: app.status, method: 'app' };
+        } catch {
+          // Prefer bot attribution; select a working fallback before any write.
+        }
+        try {
+          await userRequest.status();
+          return { request: userRequest, status: async () => ({ ...await userRequest.status(),
+            fallbackFrom: 'app', fallbackReason: 'No authorized GitHub App installation is available.' }), method: 'user' };
         } catch {
           // Select the fallback before any repository write. Never replay a
           // failed write under a different identity: it may have succeeded.
