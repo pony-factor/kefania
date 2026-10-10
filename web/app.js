@@ -3,6 +3,7 @@ let csrf = '';
 let settings;
 let repositories = [];
 let authorizationActive = false;
+let currentConnection;
 
 function message(id, text, kind = '') {
   const element = byId(id);
@@ -19,6 +20,7 @@ async function api(path, payload) {
   return value;
 }
 function setConnection(connection) {
+  currentConnection = connection;
   const ok = Boolean(connection?.connected);
   byId('connection-dot').classList.toggle('connected', ok);
   const provider = connection?.githubAuth;
@@ -27,7 +29,27 @@ function setConnection(connection) {
     ? 'Connected as @' + identity + (provider === 'user' ? ' · your account' : provider === 'app' ? ' · GitHub App bot' : ' · gh CLI fallback')
     : 'Not connected — authorize on GitHub';
   byId('disconnect').hidden = provider !== 'user';
-  byId('connect').textContent = provider === 'user' ? 'Reconnect GitHub' : 'Connect GitHub';
+  byId('connect').textContent = provider === 'app' ? 'Check GitHub setup' : 'Connect GitHub';
+  byId('connect-account').textContent = provider === 'user' ? 'Reconnect your account' : 'Connect your account';
+  const missing = connection?.installations?.filter(item => item.missingPermissions?.length) || [];
+  message('bot-access-message', missing.length
+    ? 'Bot key saved. GitHub permissions still need approval for ' + missing.map(item => item.account).join(', ') + '.'
+    : '', missing.length ? 'error' : '');
+  byId('access-setup').hidden = provider !== 'app' || (!missing.length && repositories.length > 0);
+  const links = byId('installation-links');
+  links.replaceChildren();
+  for (const installation of connection?.installations || []) {
+    if (!installation.settingsUrl) continue;
+    const url = new URL(installation.settingsUrl);
+    if (url.origin !== 'https://github.com') continue;
+    const link = document.createElement('a');
+    link.href = url.href;
+    link.textContent = 'Configure ' + installation.account;
+    link.className = 'text-link';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    links.append(link);
+  }
 }
 function renderRepositories() {
   const list = byId('repo-list');
@@ -36,7 +58,7 @@ function renderRepositories() {
   if (!repositories.length) {
     const empty = document.createElement('span');
     empty.className = 'subtle';
-    empty.textContent = 'No accessible repositories found. Check the app installation, permissions, or CLI sign-in.';
+    empty.textContent = 'No repositories are enabled for this identity. Choose repositories in the GitHub App installation settings, then refresh.';
     list.append(empty);
   }
   for (const repo of repositories) {
@@ -49,7 +71,7 @@ function renderRepositories() {
     box.disabled = !repo.canPush;
     box.addEventListener('change', updateDefaultOptions);
     const name = document.createElement('span');
-    name.textContent = repo.name + (repo.canPush ? '' : ' · read-only');
+    name.textContent = repo.name + (repo.canPush ? '' : ' · PR creation unavailable');
     label.append(box, name);
     list.append(label);
   }
@@ -71,7 +93,8 @@ async function refreshRepositories() {
   try {
     repositories = (await api('repositories')).repositories;
     renderRepositories();
-    message('repo-message', repositories.length ? 'Select repositories and save preferences below.' : 'Nothing available yet. Check GitHub App installation or gh CLI.', '');
+    message('repo-message', repositories.length ? 'Select repositories and save preferences below.' : 'Enable repository access using Choose repositories on GitHub above, then refresh.', '');
+    setConnection((await api('bootstrap')).connection);
   } catch (error) { message('repo-message', error.message, 'error'); }
 }
 async function getConnection() {
@@ -124,8 +147,19 @@ async function pollAuthorization() {
   }
 }
 byId('connect').addEventListener('click', async () => {
+  if (currentConnection?.githubAuth !== 'app') {
+    byId('bot-setup').open = true;
+    byId('bot-setup').scrollIntoView({ block: 'center', behavior: 'smooth' });
+    message('bot-message', 'Select the App’s private-key PEM file, find its installations, then save the bot connection.');
+    return;
+  }
+  byId('connect').disabled = true;
+  try { await refreshRepositories(); }
+  finally { byId('connect').disabled = false; }
+});
+byId('connect-account').addEventListener('click', async () => {
   if (authorizationActive) { message('connect-message', 'Complete the current GitHub authorization first.'); return; }
-  const button = byId('connect');
+  const button = byId('connect-account');
   button.disabled = true;
   message('connect-message', 'Requesting a one-time authorization code…');
   try {
@@ -153,6 +187,38 @@ byId('disconnect').addEventListener('click', async () => {
   } catch (error) { message('connect-message', error.message, 'error'); }
 });
 byId('refresh-repos').addEventListener('click', refreshRepositories);
+byId('bot-key').addEventListener('change', () => { byId('bot-installations').hidden = true; });
+byId('bot-app-id').addEventListener('input', () => { byId('bot-installations').hidden = true; });
+byId('bot-find').addEventListener('click', async () => {
+  const button = byId('bot-find');
+  button.disabled = true;
+  byId('bot-installations').hidden = true;
+  message('bot-message', 'Checking the App and its installations…');
+  try {
+    const file = byId('bot-key').files[0];
+    if (!file || file.size > 16000) throw new Error('Select a private-key PEM file smaller than 16 KB.');
+    const privateKey = await file.text();
+    byId('bot-key').value = '';
+    const result = await api('bot/start', { appId: byId('bot-app-id').value.trim(), privateKey });
+    byId('bot-accounts').textContent = 'Found installations for ' + result.installations.map(item => item.account).join(', ')
+      + '. Kefania automatically selects the installation for each PR’s repository.';
+    byId('bot-installations').hidden = false;
+    message('bot-message', 'Save the bot connection within five minutes. No account selection is needed.');
+  } catch (error) { message('bot-message', error.message, 'error'); }
+  finally { byId('bot-key').value = ''; button.disabled = false; }
+});
+byId('bot-save').addEventListener('click', async () => {
+  const button = byId('bot-save');
+  button.disabled = true;
+  message('bot-message', 'Verifying access and saving in Keychain…');
+  try {
+    const result = await api('bot/finish', {});
+    setConnection(result.connection);
+    message('bot-message', 'Saved ' + result.bot.githubLogin + ' in macOS Keychain. New local PR runs use the bot; restart any running Kefania MCP server.', 'success');
+    await refreshRepositories();
+  } catch (error) { message('bot-message', error.message, 'error'); }
+  finally { byId('bot-installations').hidden = true; button.disabled = false; }
+});
 async function runPr(preview) {
   const button = byId(preview ? 'preview' : 'publish');
   if (!preview && !window.confirm('Publish a ready-for-review pull request on GitHub?')) return;

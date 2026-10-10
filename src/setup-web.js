@@ -7,6 +7,8 @@ import { githubRequest } from './github.js';
 import { githubDeviceAuthorization } from './user-auth.js';
 import { loadPreferences, savePreferences, validatePreferences } from './preferences.js';
 import { runLocalPullRequest } from './local-pr.js';
+import { createBotSetup } from './bot-setup.js';
+import { defaultClientId } from './app-settings.js';
 
 const allowed = (process.env.KEFANIA_ALLOWED_REPOSITORIES || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 const token = randomBytes(32).toString('hex');
@@ -33,7 +35,8 @@ async function readBody(req) {
 }
 
 export function createSetupServer({ github = githubRequest, authorization = githubDeviceAuthorization,
-  preferences = { load: loadPreferences, save: savePreferences }, draftPr = runLocalPullRequest } = {}) {
+  preferences = { load: loadPreferences, save: savePreferences }, draftPr = runLocalPullRequest,
+  botSetup = createBotSetup() } = {}) {
   // A random CSRF token is returned only to same-origin callers; it is not a GitHub credential.
   const matchesToken = received => typeof received === 'string' && received.length === token.length
     && timingSafeEqual(Buffer.from(received), Buffer.from(token));
@@ -45,7 +48,7 @@ export function createSetupServer({ github = githubRequest, authorization = gith
     const repos = await github.repositories();
     return repos.filter(item => validName.test(item.full_name || '')
         && (!allowed.length || allowed.includes(item.full_name.toLowerCase())))
-      .map(item => ({ name: item.full_name, canPush: Boolean(item.permissions?.push) }))
+      .map(item => ({ name: item.full_name, canPush: item.canCreatePullRequest ?? Boolean(item.permissions?.push) }))
       .sort((a, b) => a.name.localeCompare(b.name));
   };
   return createServer(async (req, res) => {
@@ -71,17 +74,30 @@ export function createSetupServer({ github = githubRequest, authorization = gith
         return res.end(html);
       }
       if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
-        return json(200, { csrf: token, settings: await preferences.load(), connection: await connection() });
+        const settings = await preferences.load();
+        return json(200, { csrf: token, settings: { ...settings, clientId: settings.clientId || defaultClientId() }, connection: await connection() });
       }
       if (req.method === 'GET' && url.pathname === '/api/repositories') {
+        github.reset();
         return json(200, { repositories: await repositories() });
       }
       if (req.method !== 'POST' || !url.pathname.startsWith('/api/')) return json(404, { error: 'Not found.' });
       if (!matchesToken(req.headers['x-kefania-csrf'])) return json(403, { error: 'Reload the setup page and try again.' });
       const input = await readBody(req);
+      if (url.pathname === '/api/bot/start' || url.pathname === '/api/bot/finish') {
+        try {
+          if (url.pathname === '/api/bot/start') return json(200, await botSetup.start(input));
+          const bot = await botSetup.finish(input);
+          github.reset();
+          return json(200, { bot, connection: await connection() });
+        } catch {
+          // Never reflect credential input or upstream errors into the browser.
+          return json(400, { error: 'Bot setup failed. Check the App ID, RSA PEM file, installation access, and macOS Keychain. Select the file again to retry.' });
+        }
+      }
       if (url.pathname === '/api/connect') {
         const current = await preferences.load();
-        const clientId = input.clientId || current.clientId || process.env.KEFANIA_GITHUB_CLIENT_ID || '';
+        const clientId = input.clientId || current.clientId || defaultClientId();
         const flow = await authorization.start(clientId);
         await preferences.save({ ...current, clientId });
         return json(200, flow);
@@ -121,7 +137,7 @@ export function createSetupServer({ github = githubRequest, authorization = gith
     } catch (error) {
       return json(400, { error: errorMessage(error) });
     }
-  });
+  }).on('close', () => botSetup.clear());
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

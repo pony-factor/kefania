@@ -48,7 +48,8 @@ export function githubCliRequest(endpoint, { method = 'GET', body } = {}) {
 
 // Credentials are supplied by the process environment, never read from files.
 export function createAppRequest({ env = process.env, fetchImpl = fetch, now = Date.now } = {}) {
-  let appPromise, tokenPromise, cachedToken;
+  let appPromise;
+  const tokens = new Map(), tokenPromises = new Map(), repositoryInstallations = new Map();
   const api = async (endpoint, authorization, { method = 'GET', body } = {}) => {
     let response;
     try {
@@ -69,7 +70,7 @@ export function createAppRequest({ env = process.env, fetchImpl = fetch, now = D
   };
   const jwt = () => {
     if (!env.KEFANIA_GITHUB_APP_ID || !env.KEFANIA_GITHUB_PRIVATE_KEY) {
-      throw new Error('Configure KEFANIA_GITHUB_APP_ID, KEFANIA_GITHUB_INSTALLATION_ID, and KEFANIA_GITHUB_PRIVATE_KEY for codex-pony. Supply credentials securely through the process environment.');
+      throw new Error('Configure KEFANIA_GITHUB_APP_ID and KEFANIA_GITHUB_PRIVATE_KEY for codex-pony. Supply credentials securely through the process environment.');
     }
     const seconds = Math.floor(now() / 1000);
     const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -89,29 +90,53 @@ export function createAppRequest({ env = process.env, fetchImpl = fetch, now = D
     }
     return appPromise;
   };
-  const token = async () => {
+  const token = async installationId => {
     await app();
-    if (!/^\d+$/.test(env.KEFANIA_GITHUB_INSTALLATION_ID || '')) throw new Error('Configure the GitHub App installation with npm run setup:github.');
-    if (cachedToken?.expires > now() + 60000) return cachedToken.token;
-    if (!tokenPromise) {
-      tokenPromise = api(`app/installations/${env.KEFANIA_GITHUB_INSTALLATION_ID}/access_tokens`, jwt(), { method: 'POST' })
+    const id = String(installationId || '');
+    if (!/^\d+$/.test(id)) throw new Error('No GitHub App installation is available for this request.');
+    const cached = tokens.get(id);
+    if (cached?.expires > now() + 60000) return cached.token;
+    if (!tokenPromises.has(id)) {
+      tokenPromises.set(id, api(`app/installations/${id}/access_tokens`, jwt(), { method: 'POST' })
         .then(value => {
           const expires = Date.parse(value.expires_at);
           if (!value.token || !Number.isFinite(expires) || expires <= now() + 60000) throw new Error('GitHub returned an invalid installation token.');
-          cachedToken = { token: value.token, expires };
-          return cachedToken;
-        }).finally(() => { tokenPromise = undefined; });
+          tokens.set(id, { token: value.token, expires });
+          return value.token;
+        }).finally(() => { tokenPromises.delete(id); }));
     }
-    return (await tokenPromise).token;
+    return tokenPromises.get(id);
   };
-  const request = async (endpoint, options) => {
-    const authorization = await token();
+  const installedRequest = async (id, endpoint, options) => {
+    const authorization = await token(id);
     try { return await api(endpoint, authorization, options); }
     catch (error) {
-      if (error.status === 401) cachedToken = undefined;
+      if (error.status === 401 || error.status === 403) tokens.delete(String(id));
       // Never retry a write automatically: GitHub may already have accepted it.
       throw error;
     }
+  };
+  const request = async (endpoint, options) => {
+    await app();
+    const root = endpoint.match(/^repos\/[^/?]+\/[^/?]+(?=\/|\?|$)/)?.[0];
+    let id = env.KEFANIA_GITHUB_INSTALLATION_ID;
+    if (root) {
+      const key = root.toLowerCase();
+      if (!repositoryInstallations.has(key)) {
+        repositoryInstallations.set(key, api(`${root}/installation`, jwt()).then(installation => {
+          if (installation.suspended_at) throw new Error('The GitHub App installation for this repository is suspended.');
+          return String(installation.id);
+        }).catch(error => {
+          repositoryInstallations.delete(key);
+          if (error.status === 404) throw new Error('Install codex-pony on this repository before creating a bot PR.');
+          throw error;
+        }));
+      }
+      id = await repositoryInstallations.get(key);
+    } else if (!id) {
+      id = (await request.installations()).find(item => !item.suspended_at)?.id;
+    }
+    return installedRequest(id, endpoint, options);
   };
   request.installations = async () => {
     await app();
@@ -122,9 +147,33 @@ export function createAppRequest({ env = process.env, fetchImpl = fetch, now = D
       if (batch.length < 100) return installations;
     }
   };
+  request.repositories = async () => {
+    const repos = new Map();
+    for (const installation of (await request.installations()).filter(item => !item.suspended_at)) {
+      for (let page = 1; ; page++) {
+        const batch = await installedRequest(installation.id, `installation/repositories?per_page=100&page=${page}`);
+        for (const repo of batch.repositories || []) {
+          repos.set(repo.full_name.toLowerCase(), { ...repo,
+            canCreatePullRequest: installation.permissions?.pull_requests === 'write'
+              && ['read', 'write'].includes(installation.permissions?.contents)
+              && !repo.archived && !repo.disabled });
+        }
+        if ((batch.repositories || []).length < 100) break;
+      }
+    }
+    return [...repos.values()];
+  };
   request.status = async () => {
-    await request('installation/repositories?per_page=1');
-    return { githubLogin: `${(await app()).slug}[bot]`, githubAuth: 'app', installationId: env.KEFANIA_GITHUB_INSTALLATION_ID };
+    const installations = (await request.installations()).filter(item => !item.suspended_at);
+    if (!installations.length) throw new Error('Install codex-pony on a GitHub account or organization first.');
+    return { githubLogin: `${(await app()).slug}[bot]`, githubAuth: 'app', automaticInstallation: true,
+      installations: installations.map(item => ({ id: String(item.id), account: item.account.login,
+        settingsUrl: item.account.type === 'Organization'
+          ? `https://github.com/organizations/${encodeURIComponent(item.account.login)}/settings/installations/${item.id}`
+          : `https://github.com/settings/installations/${item.id}`,
+        missingPermissions: [!['read', 'write'].includes(item.permissions?.contents) && 'Contents: read',
+          item.permissions?.pull_requests !== 'write' && 'Pull requests: read/write',
+          item.permissions?.issues !== 'write' && 'Issues: read/write'].filter(Boolean) })) };
   };
   return request;
 }
@@ -142,16 +191,16 @@ export function createGithubRequest({ env = process.env, appRequest, userRequest
     if (!selected) {
       selected = (async () => {
         try {
-          await userRequest.status();
-          return { request: userRequest, status: userRequest.status, method: 'user' };
-        } catch {
-          // A user must have a working connection before any write; do not
-          // silently switch identities after a failed user-authorized write.
-        }
-        try {
           const app = await getApp();
           await app.status();
           return { request: app, status: app.status, method: 'app' };
+        } catch {
+          // Prefer bot attribution; select a working fallback before any write.
+        }
+        try {
+          await userRequest.status();
+          return { request: userRequest, status: async () => ({ ...await userRequest.status(),
+            fallbackFrom: 'app', fallbackReason: 'No authorized GitHub App installation is available.' }), method: 'user' };
         } catch {
           // Select the fallback before any repository write. Never replay a
           // failed write under a different identity: it may have succeeded.
@@ -165,10 +214,10 @@ export function createGithubRequest({ env = process.env, appRequest, userRequest
   };
   const request = async (endpoint, options) => (await choose()).request(endpoint, options);
   request.status = async () => (await choose()).status();
-  request.reset = () => { selected = undefined; };
+  request.reset = () => { selected = undefined; resolvedApp = undefined; };
   request.repositories = async () => {
     const provider = await choose();
-    if (provider.method === 'user') return provider.request.repositories();
+    if (provider.request.repositories) return provider.request.repositories();
     const results = [];
     for (let page = 1; page <= 10; page++) {
       const endpoint = provider.method === 'app'

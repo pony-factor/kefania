@@ -19,8 +19,8 @@
       <section class="step" aria-labelledby="connect-heading">
         <div class="step-label">01 · Connect</div>
         <div class="step-content">
-          <h2 id="connect-heading">Connect your GitHub account</h2>
-          <p class="subtle">Authorize in your browser. No private key download or token copying.</p>
+          <h2 id="connect-heading">Connect GitHub</h2>
+          <p class="subtle">Connect codex-pony[bot] once. Kefania chooses the right installation for each repository automatically.</p>
           <div class="status-line"><span class="dot" id="connection-dot"></span><strong id="connection-state">Checking connection…</strong></div>
           <div class="actions">
             <button id="connect" type="button" class="primary">Connect GitHub</button>
@@ -34,12 +34,39 @@
             <p class="subtle" id="auth-progress" role="status" aria-live="polite">Finish authorization in the GitHub tab.</p>
           </div>
           <details class="developer">
-            <summary>GitHub App administrator setup</summary>
-            <p class="subtle">Enter the public Client ID for the <strong>codex-pony</strong> GitHub App. Enable <strong>Device Flow</strong> in its settings. Give the app Contents (read), Pull requests (read/write), Issues (read/write), and Metadata (read) permissions, and install it on the repositories you want to use. No app private key or client secret is needed for this flow.</p>
+            <summary>Use your account with the App badge instead</summary>
+            <p class="subtle">This optional connection attributes PRs to your account. The public Client ID is filled in automatically. Enable Device Flow in the App settings, then authorize on GitHub. No private key or client secret is needed for this account connection.</p>
             <label for="client-id">GitHub App Client ID</label>
             <input type="text" id="client-id" placeholder="Iv1… or Ov23li…" autocomplete="off" spellcheck="false">
+            <div class="actions"><button id="connect-account" type="button" class="secondary">Connect your account</button></div>
           </details>
-          <p class="subtle fallback">Already use the GitHub CLI? <code>gh auth login</code> remains a fallback. App-installation credentials also still work, but bot-authored PRs are attributed to <code>codex-pony[bot]</code>; user authorization attributes them to your GitHub account.</p>
+          <details id="bot-setup">
+            <summary>Set up codex-pony[bot]</summary>
+            <p class="subtle">Publish PRs as the bot. Select the App's downloaded private-key PEM file; Kefania saves it in macOS Keychain. Bot authentication takes priority over your connected account.</p>
+            <a class="text-link" href="https://github.com/settings/apps/codex-pony" target="_blank" rel="noopener noreferrer">Open codex-pony App settings ↗</a>
+            <label for="bot-app-id">GitHub App ID</label>
+            <input id="bot-app-id" type="text" inputmode="numeric" value="4871148" autocomplete="off" spellcheck="false">
+            <label for="bot-key">Private-key PEM file</label>
+            <input id="bot-key" type="file" accept=".pem">
+            <div class="actions"><button id="bot-find" type="button" class="secondary">Find installations</button></div>
+            <div id="bot-installations" hidden>
+              <p id="bot-accounts" class="subtle"></p>
+              <div class="actions"><button id="bot-save" type="button" class="primary">Save bot connection</button></div>
+            </div>
+            <p id="bot-message" class="message" role="status" aria-live="polite"></p>
+          </details>
+          <p id="bot-access-message" class="message" role="status" aria-live="polite"></p>
+          <div id="access-setup" class="authorization" hidden>
+            <h3>Finish GitHub access</h3>
+            <p class="subtle">Your bot key is saved. Finish these steps on GitHub; you do not need to select the PEM again.</p>
+            <ol>
+              <li><a href="https://github.com/settings/apps/codex-pony/permissions" target="_blank" rel="noopener noreferrer">Set the App permissions</a>: Contents read, Pull requests read/write, Issues read/write, and Metadata read. Save the changes.</li>
+              <li>Open each installation below, approve any updated permissions, and enable the repositories you want the bot to use.</li>
+              <li>Return here and click <strong>Check GitHub setup</strong>.</li>
+            </ol>
+            <div id="installation-links" class="actions"></div>
+          </div>
+          <p class="subtle fallback">Bot setup attributes PRs to <code>codex-pony[bot]</code>. Connect GitHub attributes them to your account through the App. <code>gh auth login</code> remains a fallback.</p>
           <p id="connect-message" class="message" role="status" aria-live="polite"></p>
         </div>
       </section>

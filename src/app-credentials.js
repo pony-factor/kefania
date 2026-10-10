@@ -15,7 +15,7 @@ export function keychainCommand(args, input) {
 }
 
 export async function loadAppEnvironment(env = process.env, { platform = process.platform, run = keychainCommand } = {}) {
-  if (env.KEFANIA_GITHUB_APP_ID && env.KEFANIA_GITHUB_INSTALLATION_ID && env.KEFANIA_GITHUB_PRIVATE_KEY) return env;
+  if (env.KEFANIA_GITHUB_APP_ID && env.KEFANIA_GITHUB_PRIVATE_KEY) return env;
   if (platform !== 'darwin') return env;
   try {
     const stored = JSON.parse(Buffer.from((await run(['find-generic-password', '-s', service, '-a', 'codex-pony', '-w'])).trim(), 'base64').toString('utf8'));
