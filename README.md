@@ -10,9 +10,9 @@ See **[the canonical Kafania MCP setup guide](docs/MCP_SETUP.md)** for VS Code s
 
 ## Local setup
 
-For Sweetiebot's PR button, the local runner uses your existing Codex ChatGPT login to draft, then publishes using your authorized GitHub user session, the `codex-pony` GitHub App bot, or your existing `gh` login. It requires no OpenAI API key, HTTP listener, or tunnel. Install the Codex CLI and sign in with `codex login`; connect GitHub using the browser setup below. Keep this checkout beside the repository using Sweetiebot and install its dependencies with `npm ci --ignore-scripts`.
+Sweetiebot's PR button first opens a ChatGPT conversation in VS Code's Integrated Browser. The chat receives verified published-branch evidence and the canonical instructions, researches relevant sources and repository history, and returns a finished description with a **Publish with codex-pony bot** link. Clicking that one-time link publishes locally using the saved GitHub App credentials; it does not start another Codex inference run. The link expires after one hour and rejects a changed branch head. No OpenAI API key, HTTP listener, or tunnel is required. Keep this checkout beside the repository using Sweetiebot and install its dependencies with `npm ci --ignore-scripts`.
 
-The button passes the repository, head, base, and available conversation source to `src/local-pr.js`. The runner reads the published comparison through the GitHub App API, withholds secret-bearing patches, and asks a read-only Codex process for structured title/body text. Kefania then publishes a ready-for-review PR using the verified head SHA and existing duplicate and provenance handling. It never stages, commits, or pushes.
+The runner reads the published comparison through the GitHub App API and withholds secret-bearing patches. Kefania publishes a ready-for-review PR using the verified head SHA and existing duplicate and provenance handling. It never stages, commits, or pushes. If the Integrated Browser is unavailable before launch, Sweetiebot falls back to a read-only local Codex drafter authenticated through your ChatGPT login (`codex login`). A failed or unfinished browser chat never silently starts that fallback.
 
 To generate text without publishing, send a JSON request on stdin:
 
