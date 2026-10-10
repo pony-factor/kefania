@@ -46,6 +46,27 @@ test('fresh setup fills the public Client ID and connects without asking users t
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
 
+test('Ollama model refresh uses local settings and requires the setup CSRF token', async () => {
+  let received;
+  const server = createSetupServer({
+    github: { status: async () => ({ githubLogin: 'codex-pony[bot]', githubAuth: 'app' }) },
+    preferences: { load: async () => ({ ollama: { ...defaultOllamaSettings(), model: 'saved:local' } }) },
+    models: async settings => { received = settings; return ['installed:model']; },
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const address = 'http://127.0.0.1:' + server.address().port;
+  try {
+    const bootstrap = await (await fetch(address + '/api/bootstrap')).json();
+    const post = headers => fetch(address + '/api/ollama/models', { method: 'POST', headers,
+      body: JSON.stringify({ baseUrl: 'http://localhost:11435' }) });
+    assert.equal((await post({})).status, 403);
+    const response = await post({ 'X-Kefania-CSRF': bootstrap.csrf });
+    assert.deepEqual(await response.json(), { models: ['installed:model'] });
+    assert.equal(received.baseUrl, 'http://localhost:11435');
+    assert.equal(received.model, 'saved:local');
+  } finally { await new Promise(resolve => server.close(resolve)); }
+});
+
 test('setup exposes working UI, status, repos, CSRF and safe preview without GitHub PR writes', async () => {
   let settings = { length: 'balanced', tone: 'professional', instructions: '',
     repositories: ['example/demo'], selectedRepository: 'example/demo', clientId: 'Iv123456789' };

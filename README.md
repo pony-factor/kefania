@@ -24,6 +24,12 @@ Omit `draftOnly` to draft and publish. The runner forces ChatGPT login and remov
 
 The MCP transports below remain available for clients that already use them.
 
+### Ollama fallback
+
+Drafting follows ChatGPT in Sweetiebot's Integrated Browser, then the Codex CLI when the browser is unavailable, then local Ollama if Codex drafting fails. Completed browser drafts publish directly without invoking either local model. Failed GitHub writes do not trigger model fallback.
+
+Open **Ollama fallback** in the local setup UI to enable or disable it, refresh installed models, and choose the model, local server address, temperature, context tokens, output tokens, timeout, and thinking mode. Click **Save preferences** to persist the choices. The default is `qwen2.5-coder:7b` at `http://127.0.0.1:11434`; the model must already be installed. The settings are read on each fallback run and remain outside the repository. Ollama receives the same canonical instructions and filtered branch evidence as the Codex drafter, and returns structured title/body JSON using the [Ollama generation API](https://docs.ollama.com/api/generate). Invalid or truncated output cannot publish a PR.
+
 Install Node.js 20 or newer. An existing `gh auth login` is sufficient for fallback access; configure the app when ready, then run:
 
 ```sh
