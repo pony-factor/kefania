@@ -15,7 +15,7 @@ function expiringStore(now, capacity = 1000) {
     delete(key) { values.delete(key); },
     set(key, value) {
       prune();
-      if (values.size >= capacity) throw new InvalidRequestError('Authorization capacity reached. Try again later.');
+      if (!values.has(key) && values.size >= capacity) throw new InvalidRequestError('Authorization capacity reached. Try again later.');
       values.set(key, value);
     },
   };
@@ -160,8 +160,10 @@ export function createHostedOAuth({ publicUrl, clientId, clientSecret, allowedUs
       const value = refresh.get(hash(token)), session = value && sessions.get(value.sessionId);
       if (!session || session.clientId !== client.client_id) throw new InvalidGrantError('Refresh token is invalid or expired.');
       if (requestedScopes?.some(scope => !session.scopes.includes(scope))) throw new InvalidScopeError('Refresh cannot expand scopes.');
-      await checkUser(session.githubToken);
+      // Consume before the asynchronous GitHub check so concurrent refreshes cannot reuse this token.
       refresh.delete(hash(token));
+      await checkUser(session.githubToken);
+      if (sessions.get(value.sessionId) !== session) throw new InvalidGrantError('Authorization session changed. Reconnect the client.');
       const updated = { ...session, scopes: requestedScopes?.length ? requestedScopes : session.scopes };
       sessions.set(value.sessionId, updated);
       return issue(value.sessionId, updated);
