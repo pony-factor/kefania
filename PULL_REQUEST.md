@@ -14,6 +14,8 @@ When the current work meaningfully extends, fixes, supersedes, reverses, depends
 
 Cross-reference that history in the PR description when it helps explain the change. Prefer the related pull request when it captures the broader context; cite a specific commit when the commit itself is the useful reference. Briefly state the relationship instead of dropping unexplained links.
 
+Write every GitHub reference as its full URL on its own. Do not prepend a PR or issue number, wrap the URL in parentheses, or use a Markdown link label. Include each URL exactly once. For non-GitHub sources, use a normal descriptive Markdown link.
+
 Use affected files, symbols, features, issue language, and distinctive wording from the diff to find likely history. Follow the evidence far enough to identify a real connection, but do not turn PR drafting into an exhaustive history search.
 
 Do not force historical references into unrelated changes. Omit them when the connection is weak, merely chronological, ambiguous, or does not materially help a reader understand the current PR.
@@ -50,7 +52,7 @@ Do not describe commit authorship or imply that the repository changes themselve
 
 When the caller supplies a recognized Sweetiebot pony match, treat it as local chat enrichment only. It is completely separate from the pull request and must not appear in the PR title, description, comments, provenance metadata, or Kafania tool arguments.
 
-Publish the pull request normally first. After a successful publication, add a compact pony profile to the assistant's chat response. Use the supplied Sweetiebot catalog metadata only to identify the character; verify character facts with public sources instead of guessing from the branch slug.
+Research the pony independently from PR drafting and publication. Neither workflow waits for the other. Return the compact pony profile to the local confirmation page when the caller supplies a profile callback; otherwise include it in the assistant's chat response. Use the supplied Sweetiebot catalog metadata only to identify the character; verify character facts with public sources instead of guessing from the branch slug. The profile remains available even when PR preparation or publication fails.
 
 The profile should make a crowded cast easy to remember. Prefer a short conversational description of who the character is and why someone might recognize them, then cover the most useful available details: canon or fandom naming history, how the name became attached to the character, notable episode/film/comic appearances, speaking status and voice actor when known, aliases or production names, and distinctive visual or story context. Clearly distinguish official names from merchandise, credits, scripts, production labels, wiki conventions, and fan-created names.
 
