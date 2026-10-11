@@ -210,6 +210,37 @@ byId('disconnect').addEventListener('click', async () => {
   } catch (error) { message('connect-message', error.message, 'error'); }
 });
 byId('refresh-repos').addEventListener('click', refreshRepositories);
+
+async function sweetiebotAction(action) {
+  const buttons = ['sweetiebot-check', 'sweetiebot-repair', 'sweetiebot-update'].map(byId);
+  if (action === 'update' && !window.confirm('Fast-forward the clean Kefania main checkout and reinstall its npm dependencies?')) return;
+  buttons.forEach(button => { button.disabled = true; });
+  message('sweetiebot-message', action === 'check' ? 'Checking the local PR-button setup…'
+    : action === 'update' ? 'Updating Kefania and reinstalling dependencies…'
+      : 'Preparing the sibling checkout and dependencies…');
+  byId('sweetiebot-status').textContent = '';
+  try {
+    const result = await api('sweetiebot/' + action, {
+      repository: byId('default-repo').value,
+      checkoutPath: byId('sweetiebot-checkout').value.trim(),
+    });
+    const lines = [
+      (result.linkState === 'ready' ? '✓ ' : result.linkState === 'conflict' ? '✕ ' : '○ ') +
+        'Sibling checkout: ' + result.linkState + ' · ' + result.siblingPath,
+      (result.dependenciesReady ? '✓ ' : '○ ') + 'npm dependencies: ' + (result.dependenciesReady ? 'installed' : 'missing'),
+      (result.runnerReady ? '✓ ' : '✕ ') + 'Kefania PR runner: ' + (result.runnerReady ? 'present' : 'missing'),
+    ];
+    byId('sweetiebot-status').textContent = lines.join('\n');
+    message('sweetiebot-message', result.ready
+      ? 'Local runner is ready. This checks paths and dependencies, not the VS Code PR-button interaction.'
+      : 'Setup needs attention. A conflicting sibling path must be resolved manually before repair.',
+    result.ready ? 'success' : 'error');
+  } catch (error) { message('sweetiebot-message', error.message, 'error'); }
+  finally { buttons.forEach(button => { button.disabled = false; }); }
+}
+for (const action of ['check', 'repair', 'update']) {
+  byId('sweetiebot-' + action).addEventListener('click', () => sweetiebotAction(action));
+}
 byId('bot-key').addEventListener('change', () => { byId('bot-installations').hidden = true; });
 byId('bot-app-id').addEventListener('input', () => { byId('bot-installations').hidden = true; });
 byId('bot-find').addEventListener('click', async () => {

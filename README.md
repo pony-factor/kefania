@@ -67,6 +67,12 @@ The style settings are appended as **supplemental drafting instructions** to the
 
 
 
+### Sweetiebot PR-button readiness in the setup UI
+
+Under **Choose where Kefania can work**, expand **Set up Sweetiebot's PR button** and enter the absolute path of the local repository checkout (for example, `/Users/GitHub/blocktransfer/SEC-publications`). Save the repository selection first. **Check PR-button setup** verifies that the checkout's GitHub origin matches, that a sibling `kefania` path points to the current Kefania installation, and that its PR runner and npm dependencies exist.
+
+**Set up or repair** installs missing dependencies via `npm ci --ignore-scripts` in Kefania's own checkout and creates the sibling directory symlink if the destination is absent. It never overwrites an existing directory or conflicting/broken symlink. **Update Kefania** first checks that its checkout is on clean `main`, fast-forwards from `pony-factor/kefania` with `git pull --ff-only`, and reinstalls dependencies. These actions are opt-in and do not modify the selected SEC-publications checkout. Restart a running Kefania setup server after updating. A ready indicator verifies local files and paths, **not** whether the VS Code PR button was clicked successfully.
+
 ## Tools
 
 | Tool | Purpose |

@@ -120,3 +120,33 @@ test('setup exposes working UI, status, repos, CSRF and safe preview without Git
     assert.equal((await fetch(address + '/api/bootstrap', { headers: { Origin: 'https://evil.example' } })).status, 403);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
+
+
+test('Sweetiebot setup routes require CSRF and a saved authorized repository', async () => {
+  const actions = [];
+  const settings = { repositories: ['blocktransfer/SEC-publications'] };
+  const server = createSetupServer({
+    github: { status: async () => ({ githubLogin: 'alice', githubAuth: 'cli' }) },
+    preferences: { load: async () => settings },
+    sweetiebot: {
+      check: async input => { actions.push(['check', input]); return { ready: false, linkState: 'missing' }; },
+      repair: async input => { actions.push(['repair', input]); return { ready: true, linkState: 'ready' }; },
+      update: async input => { actions.push(['update', input]); return { ready: true, linkState: 'ready' }; },
+    },
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const address = 'http://127.0.0.1:' + server.address().port;
+  try {
+    const bootstrap = await (await fetch(address + '/api/bootstrap')).json();
+    const call = (action, repository, csrf) => fetch(address + '/api/sweetiebot/' + action, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Kefania-CSRF': csrf },
+      body: JSON.stringify({ repository, checkoutPath: '/Users/GitHub/blocktransfer/SEC-publications' }),
+    });
+    assert.equal((await call('repair', 'blocktransfer/SEC-publications', 'bad')).status, 403);
+    assert.equal((await call('update', 'other/repo', bootstrap.csrf)).status, 400);
+    assert.equal(actions.length, 0);
+    assert.equal((await call('check', 'blocktransfer/SEC-publications', bootstrap.csrf)).status, 200);
+    assert.equal((await call('repair', 'blocktransfer/SEC-publications', bootstrap.csrf)).status, 200);
+    assert.deepEqual(actions.map(([action]) => action), ['check', 'repair']);
+  } finally { await new Promise(resolve => server.close(resolve)); }
+});

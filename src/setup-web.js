@@ -10,6 +10,7 @@ import { runLocalPullRequest } from './local-pr.js';
 import { createBotSetup } from './bot-setup.js';
 import { defaultClientId } from './app-settings.js';
 import { ollamaModels } from './ollama.js';
+import { createSweetiebotSetup } from './sweetiebot-setup.js';
 
 const allowed = (process.env.KEFANIA_ALLOWED_REPOSITORIES || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 const token = randomBytes(32).toString('hex');
@@ -37,7 +38,7 @@ async function readBody(req) {
 
 export function createSetupServer({ github = githubRequest, authorization = githubDeviceAuthorization,
   preferences = { load: loadPreferences, save: savePreferences }, draftPr = runLocalPullRequest,
-  botSetup = createBotSetup(), models = ollamaModels } = {}) {
+  botSetup = createBotSetup(), models = ollamaModels, sweetiebot = createSweetiebotSetup() } = {}) {
   // A random CSRF token is returned only to same-origin callers; it is not a GitHub credential.
   const matchesToken = received => typeof received === 'string' && received.length === token.length
     && timingSafeEqual(Buffer.from(received), Buffer.from(token));
@@ -85,6 +86,15 @@ export function createSetupServer({ github = githubRequest, authorization = gith
       if (req.method !== 'POST' || !url.pathname.startsWith('/api/')) return json(404, { error: 'Not found.' });
       if (!matchesToken(req.headers['x-kefania-csrf'])) return json(403, { error: 'Reload the setup page and try again.' });
       const input = await readBody(req);
+      if (['/api/sweetiebot/check', '/api/sweetiebot/repair', '/api/sweetiebot/update'].includes(url.pathname)) {
+        const settings = await preferences.load();
+        if (!validName.test(input.repository || '') || !settings.repositories.includes(input.repository)
+          || (allowed.length && !allowed.includes(input.repository.toLowerCase()))) {
+          throw new Error('Select the repository and save it in preferences first.');
+        }
+        const action = url.pathname.split('/').pop();
+        return json(200, await sweetiebot[action]({ repository: input.repository, checkoutPath: input.checkoutPath }));
+      }
       if (url.pathname === '/api/ollama/models') {
         const settings = await preferences.load();
         return json(200, { models: await models({ ...settings.ollama,
