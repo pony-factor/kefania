@@ -73,6 +73,8 @@ export async function runLocalPullRequest(input, { actions = createActions(), dr
   if ((!args.headRepository || args.headRepository.toLowerCase() === args.repository.toLowerCase())
       && args.head === args.base) throw new Error('Select a branch other than the PR base.');
   const context = await actions.context(selection);
+  // Return the existing PR before invoking a model or publishing another one.
+  if (context.existingPullRequest) return { ...context.existingPullRequest, existing: true };
   if (!context.aheadBy) throw new Error('Publish a branch with committed changes ahead of the base before requesting a PR.');
   if (args.expectedHeadSha && args.expectedHeadSha !== context.headSha) throw new Error('The head changed since browser drafting. Start a new PR chat before publishing.');
   if (args.contextOnly) return context;
