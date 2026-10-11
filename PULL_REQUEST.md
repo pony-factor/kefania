@@ -70,6 +70,10 @@ The source should identify the actual originating ChatGPT or Codex conversation 
 
 When the source conversation text is available, add a brief one- or two-sentence `intentSummary` describing what that conversation was trying to accomplish. This is conversation provenance, not a second diff summary, so it may legitimately differ from the final code changes.
 
+## Upstream pull requests
+
+For a PR from a fork to another repository, identify the **upstream** repository as `owner`/`repo`, the fork as `headRepository` (full `owner/repo`), the fork branch as `head`, and the upstream branch as `base`. Never infer the upstream merely from a local remote name or silently choose a target. Confirm the published fork branch and compare it against the intended upstream base. Do not assume a third-party upstream installed the codex-pony GitHub App; use an explicitly authenticated user-account workflow where appropriate.
+
 ## Publishing
 
 Create a ready-for-review PR by default (`draft: false`). Use draft status only when the caller explicitly requests it.

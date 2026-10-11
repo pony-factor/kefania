@@ -250,6 +250,8 @@ async function runPr(preview) {
   output.textContent = preview ? 'Drafting a preview from the published diff…' : 'Drafting and publishing…';
   try {
     const result = await api('pr', { repository: byId('default-repo').value,
+      upstreamRepository: byId('upstream-repo').value.trim(),
+      headRepository: byId('head-repository').value.trim(),
       head: byId('head').value, base: byId('base').value, preview });
     output.replaceChildren();
     if (preview) {

@@ -23,6 +23,12 @@ Add your public `/oauth/github/callback` URL to codex-pony's authorization callb
 
 The hosted web authorization flow requires a client secret, unlike local device flow. Bot publishing still requires the App private key. These credentials stay on the host; this service does not use the Mac's Keychain.
 
+## Upstream pull requests from forks
+
+The authenticated MCP and HTTP endpoints accept an optional `headRepository` (full `owner/repo`) distinct from the upstream `owner`/`repo`. The upstream repository must be explicitly allowed in `KEFANIA_ALLOWED_REPOSITORIES`; the signed-in user needs upstream read permission and write permission to the fork. Kefania checks that the head is actually a fork of the target and validates the exact committed head SHA.
+
+**Hosted mode never silently switches from the codex-pony App to a user account.** Install codex-pony on the upstream target and ensure its permissions permit the PR and fork comparison. Projects that have not installed the App cannot accept a bot-published PR through hosted Kefania. For those external upstreams, use the local runner with `gh auth login` to publish as your GitHub user.
+
 ## OAuth and MCP
 
 Connect to your public `/mcp` endpoint. OAuth metadata is advertised at `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource/mcp`.

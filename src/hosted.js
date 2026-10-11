@@ -20,8 +20,13 @@ export function hostedActions({ actions, oauth, auth, allowedRepositories }) {
       throw new Error('Repository is not authorized for this publisher.');
     }
     const info = await oauth.github(auth.extra.githubToken, `repos/${repository}`);
-    if (!info.permissions?.pull || (write && !info.permissions?.push && !info.permissions?.admin && !info.permissions?.maintain)) {
-      throw new Error('Your GitHub account lacks the required repository permission.');
+    if (!info.permissions?.pull) throw new Error('Your GitHub account lacks upstream repository read access.');
+    if (write) {
+      const cross = args.headRepository && args.headRepository.toLowerCase() !== repository.toLowerCase();
+      const writable = cross ? await oauth.github(auth.extra.githubToken, `repos/${args.headRepository}`) : info;
+      if (!writable.permissions?.push && !writable.permissions?.admin && !writable.permissions?.maintain) {
+        throw new Error('Your GitHub account lacks write access to the selected head repository.');
+      }
     }
   };
   const wrap = (name, write) => async args => { await authorize(args, write); return actions[name](args); };

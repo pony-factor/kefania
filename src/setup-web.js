@@ -126,17 +126,21 @@ export function createSetupServer({ github = githubRequest, authorization = gith
       }
       if (url.pathname === '/api/pr') {
         const settings = await preferences.load();
-        const repository = input.repository || settings.selectedRepository;
-        if (!validName.test(repository || '') || !settings.repositories.includes(repository)
+        const upstream = typeof input.upstreamRepository === 'string' ? input.upstreamRepository.trim() : '';
+        const headRepository = typeof input.headRepository === 'string' ? input.headRepository.trim() : '';
+        const repository = upstream || input.repository || settings.selectedRepository;
+        if (!validName.test(repository || '') || (!upstream && !settings.repositories.includes(repository))
           || (allowed.length && !allowed.includes(repository.toLowerCase()))) {
           throw new Error('Select an authorized repository and save your choices first.');
         }
+        if (headRepository && !validName.test(headRepository)) throw new Error('Enter the fork as owner/repo.');
+        if (upstream && !headRepository) throw new Error('An upstream target requires a source fork owner/repo.');
         if (typeof input.head !== 'string' || !input.head.trim() || input.head.length > 255
           || typeof input.base !== 'string' || !input.base.trim() || input.base.length > 255) {
           throw new Error('Enter a published head branch and a base branch.');
         }
         const result = await draftPr({ repository, head: input.head.trim(), base: input.base.trim(),
-          draftOnly: input.preview === true });
+          ...(headRepository ? { headRepository } : {}), draftOnly: input.preview === true });
         return json(200, result);
       }
       return json(404, { error: 'Not found.' });

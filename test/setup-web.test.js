@@ -112,6 +112,14 @@ test('setup exposes working UI, status, repos, CSRF and safe preview without Git
     assert.equal(preview.body, 'No footer.');
     assert.equal(used.length, 1);
     assert.equal(used[0].draftOnly, true);
+    const upstreamPreview = await (await post('pr', { upstreamRepository: 'upstream/project',
+      headRepository: 'contributor/project', head: 'fix-bug', base: 'main', preview: true })).json();
+    assert.equal(upstreamPreview.body, 'No footer.');
+    assert.equal(used[1].repository, 'upstream/project');
+    assert.equal(used[1].headRepository, 'contributor/project');
+    assert.equal(used[1].draftOnly, true);
+    assert.equal((await post('pr', { upstreamRepository: 'upstream/project', head: 'fix-bug',
+      base: 'main', preview: true })).status, 400, 'An upstream must have an explicit fork');
     const connect = await (await post('connect', { clientId: 'Iv123456789' })).json();
     assert.equal(connect.userCode, 'ABCD-EFGH');
     const poll = await (await post('poll', {})).json();

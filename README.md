@@ -6,6 +6,21 @@ The drafting model writes the title and description from repository evidence. Ke
 
 ## Setup by client
 
+### Open pull requests against upstream
+
+Kefania can now propose changes from your **published fork branch** to another repository in the same GitHub fork network. Set `owner` and `repo` (for MCP), or `repository` (for the local runner), to the **upstream destination**. Supply `headRepository` with the full fork name, `head` with the fork branch, and `base` with the upstream branch.
+
+For example, the local runner accepts:
+
+```sh
+printf '%s\n' '{"repository":"upstream/project","headRepository":"your-account/project","head":"my-fix","base":"main","draftOnly":true}' | npm run --silent pr:local
+```
+
+Omit `draftOnly` to publish a ready-for-review upstream PR. For MCP, pass `headRepository: "your-account/project"` to both `github_get_pull_request_context` and `github_create_pull_request`. Kefania validates fork ancestry, compares the published branches across repositories, verifies the fork head SHA before publishing, and detects existing PRs for the exact fork.
+
+**Local upstream publishing uses your existing `gh auth login` identity**, not the codex-pony App: an external upstream is unlikely to have installed that App. The fork branch must already be committed and pushed; Kefania never commits, pushes, or creates a fork. Hosted mode stays App-only, and requires codex-pony installed on the upstream repository with the necessary permissions (see [HOSTING.md](HOSTING.md)).
+
+
 For a hosted bot publisher with GitHub OAuth, see [the hosting guide](HOSTING.md). It accepts completed drafts through MCP or HTTP without another model run.
 
 See **[the canonical Kafania MCP setup guide](docs/MCP_SETUP.md)** for VS Code stdio registration, ChatGPT plugins/Secure MCP Tunnel, authenticated HTTP, verification, and troubleshooting. VS Code registration does not make the tools available in a ChatGPT browser conversation.
