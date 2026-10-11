@@ -123,7 +123,11 @@
         <div class="step-label">04 · Use Kefania</div>
         <div class="step-content">
           <h2 id="try-heading">Try a pull request</h2>
-          <p class="subtle">The local Codex runner reads published branch changes. Preview safely before choosing to publish.</p>
+          <p class="subtle">The local Codex runner reads published branch changes. Preview safely before choosing to publish. For a contribution from your fork, enter the upstream destination and source fork explicitly; run <code>gh auth login</code> first.</p>
+          <div class="fields">
+            <div><label for="upstream-repo">Upstream destination (optional)</label><input id="upstream-repo" type="text" placeholder="original-owner/project" spellcheck="false"></div>
+            <div><label for="head-repository">Source fork (optional)</label><input id="head-repository" type="text" placeholder="your-account/project" spellcheck="false"></div>
+          </div>
           <div class="fields">
             <div><label for="head">Published branch</label><input id="head" type="text" placeholder="my-feature"></div>
             <div><label for="base">Base branch</label><input id="base" type="text" value="main"></div>
