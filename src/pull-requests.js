@@ -114,7 +114,7 @@ export function createActions({ request = githubRequest,
       await verifyFork(scope);
       const head = await readHead(scope, args);
       const comparison = await scope.api(comparisonPath(scope, args) + '?per_page=100');
-      if (scope.cross && comparison.head_commit?.sha && comparison.head_commit.sha !== head.sha) {
+      if (scope.cross && comparison.head_commit?.sha !== head.sha) {
         throw new Error('The fork head changed during comparison. Read the comparison again.');
       }
       const files = (comparison.files || []).map(file => secretPath(file.filename) || secretPath(file.previous_filename || '')
@@ -142,8 +142,7 @@ export function createActions({ request = githubRequest,
         const comparison = await scope.api(comparisonPath(scope, args));
         if (!comparison.ahead_by) throw new Error('The published head has no committed changes ahead of the base.');
         const currentSha = (await readHead(scope, args)).sha;
-        if (currentSha !== args.expectedHeadSha || (scope.cross && comparison.head_commit?.sha
-            && comparison.head_commit.sha !== currentSha)) {
+        if (currentSha !== args.expectedHeadSha || (scope.cross && comparison.head_commit?.sha !== currentSha)) {
           throw new Error('The head changed since drafting. Read the comparison again before publishing.');
         }
         const finalBody = descriptionBody(args.body);
