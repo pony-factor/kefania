@@ -17,6 +17,12 @@ const source = z.object({
   return url.hostname === 'vscode.dev' && url.pathname === '/redirect' && url.searchParams.get('url') === `vscode://jfwooten4.scm-toolkit-workspace-search/codex/${value.uuid}`;
 }, 'Source must link to the supplied conversation UUID.');
 
+export const contextInputSchema = z.object(selection);
+export const publishInputSchema = z.object({ ...selection, expectedHeadSha: z.string().regex(/^[a-f0-9]{40}$/i),
+  title: z.string().trim().min(1).max(256), body: z.string().trim().min(1).max(60000),
+  prompt: z.string().min(1).max(60000).optional().describe('Original user prompt, preserved verbatim in GitHub edit history when supplied. This is published text; include only content the user authorized for GitHub.'),
+  draft: z.boolean().default(false), maintainerCanModify: z.boolean().default(true), source: source.optional() });
+
 export function createMcpServer({ actions = createActions() } = {}) {
   const server = new McpServer({ name: 'codex-drafter', version: '0.1.0' }, { maxToolInputElements: 100 });
   const call = action => async args => {
@@ -42,10 +48,7 @@ export function createMcpServer({ actions = createActions() } = {}) {
   }, call(actions.context));
   server.registerTool('github_create_pull_request', {
     description: 'Publish a diff-grounded PR. Read context first and supply its headSha as expectedHeadSha. Reuses an existing open PR, appends the description attribution exactly once, and records supplied source metadata as a separate comment. Never commits, pushes, or merges. The source result may report a comment failure even though PR creation succeeded.',
-    inputSchema: { ...selection, expectedHeadSha: z.string().regex(/^[a-f0-9]{40}$/i),
-      title: z.string().trim().min(1).max(256), body: z.string().trim().min(1).max(60000),
-      prompt: z.string().min(1).max(60000).optional().describe('Original user prompt, preserved verbatim in GitHub edit history when supplied. This is published text; include only content the user authorized for GitHub.'),
-      draft: z.boolean().default(false), maintainerCanModify: z.boolean().default(true), source: source.optional() },
+    inputSchema: publishInputSchema.shape,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   }, call(actions.create));
   server.registerTool('github_comment_pull_request_source', {

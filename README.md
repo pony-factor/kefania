@@ -6,6 +6,8 @@ The drafting model writes the title and description from repository evidence. Ke
 
 ## Setup by client
 
+For a hosted bot publisher with GitHub OAuth, see [the hosting guide](HOSTING.md). It accepts completed drafts through MCP or HTTP without another model run.
+
 See **[the canonical Kafania MCP setup guide](docs/MCP_SETUP.md)** for VS Code stdio registration, ChatGPT plugins/Secure MCP Tunnel, authenticated HTTP, verification, and troubleshooting. VS Code registration does not make the tools available in a ChatGPT browser conversation.
 
 ## Local setup

@@ -9,6 +9,7 @@
     "start": "node src/index.js",
     "stdio": "node src/index.js",
     "start:http": "node src/index.js --http",
+    "start:hosted": "node src/hosted.js",
     "pr:local": "node src/local-pr.js",
     "setup:github": "node src/setup-github.js",
     "setup:web": "node src/setup-web.js",
