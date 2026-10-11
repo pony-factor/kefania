@@ -69,8 +69,9 @@ test('a failed description edit returns created PR without inviting duplicate cr
 });
 test('existing PR and concurrent calls do not create duplicates', async () => {
   const { actions, calls } = fixture();
-  await Promise.all([actions.create(create), actions.create(create)]);
-  assert.equal(calls.filter(call => call.method === 'POST' && call.endpoint.endsWith('/pulls')).length, 1);
+  await Promise.all([actions.create(create), actions.create({ ...create, base: 'release' })]);
+  assert.equal(calls.filter(call => call.method === 'POST' && call.endpoint.endsWith('/pulls')).length, 1,
+    'Different base targets must still share the head-branch creation lock');
 });
 test('an already-open branch is reused even when its PR targets a different base', async () => {
   const { actions, calls } = fixture({ existing: true, existingBase: 'release' });

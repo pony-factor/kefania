@@ -137,7 +137,7 @@ export function createActions({ request = githubRequest,
     async create(args) {
       const scope = selection(args);
       if (!scope.cross && args.head === args.base) throw new Error('Choose a head branch other than the base.');
-      return serial(scope.root + ':' + scope.source + ':' + args.head + ':' + args.base, async () => {
+      return serial(scope.root + ':' + scope.source + ':' + args.head, async () => {
         await verifyFork(scope);
         let pr = await openPr(scope);
         if (pr) return { ...summary(pr, scope), existing: true,
@@ -168,7 +168,7 @@ export function createActions({ request = githubRequest,
     },
     async comment(args) {
       const scope = selection(args);
-      return serial(scope.root + ':' + scope.source + ':' + args.head + ':' + args.base, async () => {
+      return serial(scope.root + ':' + scope.source + ':' + args.head, async () => {
         await verifyFork(scope);
         const pr = await openPr(scope);
         if (!pr) throw new Error('No open pull request found for this head and base.');
