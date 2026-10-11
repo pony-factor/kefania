@@ -80,7 +80,7 @@ export function createActions({ request = githubRequest,
     const query = new URLSearchParams({ state: 'open', head: scope.qualifiedHead, per_page: '100' });
     const pulls = await scope.api(scope.root + '/pulls?' + query);
     return pulls.find(pr => pr.head.label?.toLowerCase() === scope.qualifiedHead.toLowerCase()
-      && pr.head.repo?.full_name?.toLowerCase() === scope.source.toLowerCase());
+      && (!scope.cross || pr.head.repo?.full_name?.toLowerCase() === scope.source.toLowerCase()));
   };
   const recordSource = async (root, pr, source, api = request) => {
     const comment = sourceComment(source);
