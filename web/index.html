@@ -80,6 +80,20 @@
           <label for="default-repo">Default repository</label>
           <select id="default-repo"><option value="">Choose a repository</option></select>
           <p id="repo-message" class="message" role="status" aria-live="polite"></p>
+          <details id="sweetiebot-integration">
+            <summary>Set up Sweetiebot's PR button</summary>
+            <p class="subtle">Sweetiebot expects a <code>kefania</code> checkout beside each repository using its New PR button. Check the local path below, then let Kefania create the sibling link and install its npm dependencies. No repository commits or branches are changed.</p>
+            <label for="sweetiebot-checkout">Local checkout of the selected repository (absolute path)</label>
+            <input id="sweetiebot-checkout" type="text" autocomplete="off" spellcheck="false" placeholder="/Users/GitHub/blocktransfer/SEC-publications">
+            <div class="actions">
+              <button type="button" id="sweetiebot-check" class="secondary">Check PR-button setup</button>
+              <button type="button" id="sweetiebot-repair" class="primary">Set up or repair</button>
+              <button type="button" id="sweetiebot-update" class="secondary">Update Kefania</button>
+            </div>
+            <p class="subtle">Update Kefania fast-forwards its clean <code>main</code> checkout and runs <code>npm ci --ignore-scripts</code>. Existing sibling folders or links pointing elsewhere are never overwritten. Restart the setup page after an update.</p>
+            <p id="sweetiebot-message" class="message" role="status" aria-live="polite"></p>
+            <div id="sweetiebot-status" class="integration-status" role="status" aria-live="polite"></div>
+          </details>
         </div>
       </section>
       <section class="step" aria-labelledby="style-heading">
