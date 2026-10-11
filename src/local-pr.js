@@ -14,6 +14,7 @@ import { discoverCodexModel } from './codex-model.js';
 const inputSchema = z.object({
   repository: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
   head: z.string().min(1).max(255), base: z.string().min(1).max(255).default('main'),
+  headRepository: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/).optional(),
   source: z.object({ kind: z.enum(['chatgpt', 'codex']), uuid: z.string().uuid(), url: z.string().url(),
     intentSummary: z.string().max(2000).optional() }).optional(),
   draftOnly: z.boolean().default(false),
@@ -67,8 +68,10 @@ export async function draftWithFallback(prompt, { codex = draftWithCodex, ollama
 export async function runLocalPullRequest(input, { actions = createActions(), draft = draftWithFallback } = {}) {
   const args = inputSchema.parse(input);
   const [owner, repo] = args.repository.split('/');
-  const selection = { owner, repo, head: args.head, base: args.base };
-  if (args.head === args.base) throw new Error('Select a branch other than the PR base.');
+  const selection = { owner, repo, head: args.head, base: args.base,
+    ...(args.headRepository ? { headRepository: args.headRepository } : {}) };
+  if ((!args.headRepository || args.headRepository.toLowerCase() === args.repository.toLowerCase())
+      && args.head === args.base) throw new Error('Select a branch other than the PR base.');
   const context = await actions.context(selection);
   if (!context.aheadBy) throw new Error('Publish a branch with committed changes ahead of the base before requesting a PR.');
   if (args.expectedHeadSha && args.expectedHeadSha !== context.headSha) throw new Error('The head changed since browser drafting. Start a new PR chat before publishing.');
