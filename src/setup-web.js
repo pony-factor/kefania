@@ -9,6 +9,7 @@ import { loadPreferences, savePreferences, validatePreferences } from './prefere
 import { runLocalPullRequest } from './local-pr.js';
 import { createBotSetup } from './bot-setup.js';
 import { defaultClientId } from './app-settings.js';
+import { ollamaModels } from './ollama.js';
 
 const allowed = (process.env.KEFANIA_ALLOWED_REPOSITORIES || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 const token = randomBytes(32).toString('hex');
@@ -36,7 +37,7 @@ async function readBody(req) {
 
 export function createSetupServer({ github = githubRequest, authorization = githubDeviceAuthorization,
   preferences = { load: loadPreferences, save: savePreferences }, draftPr = runLocalPullRequest,
-  botSetup = createBotSetup() } = {}) {
+  botSetup = createBotSetup(), models = ollamaModels } = {}) {
   // A random CSRF token is returned only to same-origin callers; it is not a GitHub credential.
   const matchesToken = received => typeof received === 'string' && received.length === token.length
     && timingSafeEqual(Buffer.from(received), Buffer.from(token));
@@ -84,6 +85,11 @@ export function createSetupServer({ github = githubRequest, authorization = gith
       if (req.method !== 'POST' || !url.pathname.startsWith('/api/')) return json(404, { error: 'Not found.' });
       if (!matchesToken(req.headers['x-kefania-csrf'])) return json(403, { error: 'Reload the setup page and try again.' });
       const input = await readBody(req);
+      if (url.pathname === '/api/ollama/models') {
+        const settings = await preferences.load();
+        return json(200, { models: await models({ ...settings.ollama,
+          ...(input.baseUrl === undefined ? {} : { baseUrl: input.baseUrl }) }) });
+      }
       if (url.pathname === '/api/bot/start' || url.pathname === '/api/bot/finish') {
         try {
           if (url.pathname === '/api/bot/start') return json(200, await botSetup.start(input));

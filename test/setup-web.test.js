@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { createSetupServer } from '../src/setup-web.js';
 import { loadPreferences, savePreferences, writingInstructions } from '../src/preferences.js';
 import { CODEX_PONY_CLIENT_ID } from '../src/app-settings.js';
+import { defaultOllamaSettings } from '../src/ollama-settings.js';
 
 test('preferences persist and produce effective PR drafting instructions', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'kefania-settings-test-'));
@@ -14,7 +15,8 @@ test('preferences persist and produce effective PR drafting instructions', async
     const original = await loadPreferences({ path });
     assert.equal(original.length, 'balanced');
     const changed = { length: 'concise', tone: 'conversational', instructions: 'Use short sentences.',
-      repositories: ['example/demo'], selectedRepository: 'example/demo', clientId: 'Iv123456789' };
+      repositories: ['example/demo'], selectedRepository: 'example/demo', clientId: 'Iv123456789',
+      ollama: { ...defaultOllamaSettings(), model: 'chosen:model', temperature: 0.4 } };
     await savePreferences(changed, { path });
     assert.deepEqual(await loadPreferences({ path }), changed);
     assert.match(writingInstructions(await loadPreferences({ path })), /Use short sentences/);
@@ -41,6 +43,27 @@ test('fresh setup fills the public Client ID and connects without asking users t
     assert.equal(response.status, 200);
     assert.equal(received, bootstrap.settings.clientId);
     assert.equal(settings.clientId, received);
+  } finally { await new Promise(resolve => server.close(resolve)); }
+});
+
+test('Ollama model refresh uses local settings and requires the setup CSRF token', async () => {
+  let received;
+  const server = createSetupServer({
+    github: { status: async () => ({ githubLogin: 'codex-pony[bot]', githubAuth: 'app' }) },
+    preferences: { load: async () => ({ ollama: { ...defaultOllamaSettings(), model: 'saved:local' } }) },
+    models: async settings => { received = settings; return ['installed:model']; },
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const address = 'http://127.0.0.1:' + server.address().port;
+  try {
+    const bootstrap = await (await fetch(address + '/api/bootstrap')).json();
+    const post = headers => fetch(address + '/api/ollama/models', { method: 'POST', headers,
+      body: JSON.stringify({ baseUrl: 'http://localhost:11435' }) });
+    assert.equal((await post({})).status, 403);
+    const response = await post({ 'X-Kefania-CSRF': bootstrap.csrf });
+    assert.deepEqual(await response.json(), { models: ['installed:model'] });
+    assert.equal(received.baseUrl, 'http://localhost:11435');
+    assert.equal(received.model, 'saved:local');
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
 

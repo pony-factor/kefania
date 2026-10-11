@@ -10,9 +10,9 @@ See **[the canonical Kafania MCP setup guide](docs/MCP_SETUP.md)** for VS Code s
 
 ## Local setup
 
-For Sweetiebot's PR button, the local runner uses your existing Codex ChatGPT login to draft, then publishes using your authorized GitHub user session, the `codex-pony` GitHub App bot, or your existing `gh` login. It requires no OpenAI API key, HTTP listener, or tunnel. Install the Codex CLI and sign in with `codex login`; connect GitHub using the browser setup below. Keep this checkout beside the repository using Sweetiebot and install its dependencies with `npm ci --ignore-scripts`.
+Sweetiebot's PR button first opens a ChatGPT conversation in VS Code's Integrated Browser. The chat receives verified published-branch evidence and the canonical instructions, researches relevant sources and repository history, and returns a finished description with a **Publish with codex-pony bot** link. Clicking that one-time link publishes locally using the saved GitHub App credentials; it does not start another Codex inference run. The link expires after one hour and rejects a changed branch head. No OpenAI API key, HTTP listener, or tunnel is required. Keep this checkout beside the repository using Sweetiebot and install its dependencies with `npm ci --ignore-scripts`.
 
-The button passes the repository, head, base, and available conversation source to `src/local-pr.js`. The runner reads the published comparison through the GitHub App API, withholds secret-bearing patches, and asks a read-only Codex process for structured title/body text. Kefania then publishes a ready-for-review PR using the verified head SHA and existing duplicate and provenance handling. It never stages, commits, or pushes.
+The runner reads the published comparison through the GitHub App API and withholds secret-bearing patches. Kefania publishes a ready-for-review PR using the verified head SHA and existing duplicate and provenance handling. It never stages, commits, or pushes. If the Integrated Browser is unavailable before launch, Sweetiebot falls back to a read-only local Codex drafter authenticated through your ChatGPT login (`codex login`). A failed or unfinished browser chat never silently starts that fallback.
 
 To generate text without publishing, send a JSON request on stdin:
 
@@ -20,9 +20,15 @@ To generate text without publishing, send a JSON request on stdin:
 printf '%s\n' '{"repository":"owner/repo","head":"branch","base":"main","draftOnly":true}' | npm run --silent pr:local
 ```
 
-Omit `draftOnly` to draft and publish. The runner forces ChatGPT login and removes API-key environment variables from the drafting process. Codex runs locally but inference uses your ChatGPT plan. See the [Codex authentication documentation](https://learn.chatgpt.com/docs/auth).
+Omit `draftOnly` to draft and publish. The runner forces ChatGPT login and removes API-key environment variables from the drafting process. On every draft, it queries the CLI's available model catalog, selects its recommended model (following any available recommended upgrade), and explicitly uses **medium reasoning**. No model version is pinned. If discovery fails or that model does not support medium, the Ollama fallback applies. Codex runs locally but inference uses your ChatGPT plan. See the [Codex authentication documentation](https://learn.chatgpt.com/docs/auth).
 
 The MCP transports below remain available for clients that already use them.
+
+### Ollama fallback
+
+Drafting follows ChatGPT in Sweetiebot's Integrated Browser, then the Codex CLI when the browser is unavailable, then local Ollama if Codex drafting fails. Completed browser drafts publish directly without invoking either local model. Failed GitHub writes do not trigger model fallback.
+
+Open **Ollama fallback** in the local setup UI to enable or disable it, refresh installed models, and choose the model, local server address, temperature, context tokens, output tokens, timeout, and thinking mode. Click **Save preferences** to persist the choices. The default is `qwen2.5-coder:7b` at `http://127.0.0.1:11434`; the model must already be installed. The settings are read on each fallback run and remain outside the repository. Ollama receives the same canonical instructions and filtered branch evidence as the Codex drafter, and returns structured title/body JSON using the [Ollama generation API](https://docs.ollama.com/api/generate). Invalid or truncated output cannot publish a PR.
 
 Install Node.js 20 or newer. An existing `gh auth login` is sufficient for fallback access; configure the app when ready, then run:
 

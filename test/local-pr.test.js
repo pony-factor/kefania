@@ -34,3 +34,20 @@ test('empty comparison and invalid model output cannot publish', async () => {
   actions.context = async () => ({ aheadBy: 1, headSha: 'verified' });
   await assert.rejects(runLocalPullRequest({ repository: 'owner/repo', head: 'branch' }, { actions, draft: async () => ({ title: 'Only title' }) }));
 });
+
+test('browser context and prepared drafts never invoke Codex and preserve the verified head', async () => {
+  const sha = 'a'.repeat(40);
+  let writes = 0;
+  const actions = { async context() { return { aheadBy: 1, headSha: sha, files: [] }; },
+    async create(input) { writes++; assert.equal(input.expectedHeadSha, sha); return { published: true }; } };
+  const dependencies = { actions, draft() { assert.fail('Browser drafting must not consume a Codex run'); } };
+  const input = { repository: 'owner/repo', head: 'branch' };
+  assert.equal((await runLocalPullRequest({ ...input, contextOnly: true }, dependencies)).headSha, sha);
+  assert.equal(writes, 0);
+  const preparedDraft = { title: '🔧 Improve setup', body: 'Explain the change with a verified source.' };
+  await runLocalPullRequest({ ...input, preparedDraft, expectedHeadSha: sha }, dependencies);
+  assert.equal(writes, 1);
+  await assert.rejects(runLocalPullRequest({ ...input, preparedDraft }, dependencies), /verified head SHA/);
+  await assert.rejects(runLocalPullRequest({ ...input, preparedDraft, expectedHeadSha: 'b'.repeat(40) }, dependencies), /head changed/);
+  assert.equal(writes, 1);
+});
