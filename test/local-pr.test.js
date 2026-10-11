@@ -1,6 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtemp, symlink, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { runLocalPullRequest } from '../src/local-pr.js';
+
+test('CLI executes through a symlinked checkout and reports invalid input', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'kefania-entry-'));
+  try {
+    const checkout = join(directory, 'kefania');
+    await symlink(fileURLToPath(new URL('../', import.meta.url)), checkout, 'dir');
+    for (const runner of [fileURLToPath(new URL('../src/local-pr.js', import.meta.url)), join(checkout, 'src', 'local-pr.js')]) {
+      const result = spawnSync(process.execPath, [runner], { input: '{}', encoding: 'utf8' });
+      assert.equal(result.status, 1, result.stderr);
+      assert.equal(result.stdout, '');
+      assert.match(result.stderr, /repository/);
+    }
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
 
 test('local drafter passes the verified head and generated text to the gh publisher', async () => {
   const source = { kind: 'chatgpt', uuid: '11111111-2222-4333-8444-555555555555', url: 'https://chatgpt.com/c/11111111-2222-4333-8444-555555555555' };
