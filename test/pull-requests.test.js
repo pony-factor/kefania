@@ -6,17 +6,26 @@ const sha = 'a'.repeat(40);
 const selection = { owner: 'pony-factor', repo: 'kefania', head: 'feature', base: 'main' };
 const pr = { number: 42, html_url: 'https://github.com/pony-factor/kefania/pull/42', head: { ref: 'feature', label: 'pony-factor:feature' }, base: { ref: 'main' } };
 const source = { kind: 'chatgpt', uuid: '11111111-2222-4333-8444-555555555555', url: 'https://chatgpt.com/c/11111111-2222-4333-8444-555555555555' };
-function fixture({ existing = false, changed = false, noChanges = false, commentFailure = false, editFailure = false, existingBase = 'main' } = {}) {
+function fixture({ existing = false, changed = false, noChanges = false, commentFailure = false,
+  editFailure = false, existingBase = 'main', closed = false, historicalBase = 'b'.repeat(40),
+  currentBase = 'b'.repeat(40) } = {}) {
   const calls = [], comments = [];
   const request = async (endpoint, options = {}) => {
     calls.push({ endpoint, ...options });
-    if (endpoint.includes('/compare/')) return { ahead_by: noChanges ? 0 : 1, total_commits: 1, base_commit: { sha: 'b'.repeat(40) }, commits: [{ sha }], files: [
+    if (endpoint.includes('/compare/')) return { ahead_by: noChanges ? 0 : 1, total_commits: 1,
+      base_commit: { sha: 'b'.repeat(40) }, merge_base_commit: { sha: currentBase }, commits: [{ sha }], files: [
       { filename: '.env', patch: 'PRIVATE_FIXTURE' },
       { filename: 'ordinary.txt', previous_filename: '.env.production', patch: 'PRIVATE_RENAME' },
       { filename: 'src/app.js', patch: '+fixed', additions: 1, deletions: 0, status: 'modified' },
     ] };
     if (endpoint.includes('/commits/')) return { sha: changed ? 'c'.repeat(40) : sha };
-    if (endpoint.includes('/pulls?')) return existing ? [{ ...pr, base: { ref: existingBase }, head: { ...pr.head, repo: { full_name: selection.owner + '/' + selection.repo } } }] : [];
+    if (endpoint.includes('/pulls?')) {
+      const state = new URLSearchParams(endpoint.split('?')[1]).get('state');
+      if (state === 'closed') return closed ? [{ ...pr, number: 41, state: 'closed' }] : [];
+      return existing ? [{ ...pr, base: { ref: existingBase },
+        head: { ...pr.head, repo: { full_name: selection.owner + '/' + selection.repo } } }] : [];
+    }
+    if (endpoint.endsWith('/pulls/41/commits?per_page=1')) return [{ parents: [{ sha: historicalBase }] }];
     if (options.method === 'POST' && endpoint.endsWith('/pulls')) { existing = true; return pr; }
     if (options.method === 'PATCH') {
       if (editFailure) throw new Error('edit failed');
@@ -38,6 +47,8 @@ test('context withholds secret contents and flags incomplete evidence', async ()
   const { actions } = fixture();
   const context = await actions.context(selection);
   assert.equal(context.headSha, sha);
+  assert.equal(context.newPullRequest.allowed, true);
+  assert.equal(context.newPullRequest.startingBaseSha, 'b'.repeat(40));
   assert.equal(context.incomplete, true);
   assert(!JSON.stringify(context).includes('PRIVATE_FIXTURE'));
   assert(!JSON.stringify(context).includes('PRIVATE_RENAME'));
@@ -78,6 +89,7 @@ test('an already-open branch is reused even when its PR targets a different base
   const context = await actions.context(selection);
   assert.equal(context.existingPullRequest.number, 42);
   assert.equal(context.existingPullRequest.base, 'release');
+  assert.equal(context.newPullRequest.reason, 'open-pr');
   const result = await actions.create(create);
   assert.equal(result.existing, true);
   assert.equal(result.base, 'release');
@@ -85,6 +97,36 @@ test('an already-open branch is reused even when its PR targets a different base
   assert(calls.some(call => call.endpoint.includes('head=pony-factor%3Afeature')));
 });
 
+
+test('closed PR with identical starting base blocks a duplicate even with new commits', async () => {
+  const { actions, calls } = fixture({ closed: true });
+  const context = await actions.context(selection);
+  assert.equal(context.newPullRequest.allowed, false);
+  assert.equal(context.newPullRequest.reason, 'same-starting-base');
+  assert.equal(context.newPullRequest.pullRequest.number, 41);
+  await assert.rejects(actions.create(create), /already used this branch starting base/);
+  assert(!calls.some(call => call.method === 'POST' && call.endpoint.endsWith('/pulls')));
+});
+test('recreated branch from a different starting commit permits a new PR', async () => {
+  const { actions, calls } = fixture({ closed: true, currentBase: 'd'.repeat(40) });
+  const context = await actions.context(selection);
+  assert.equal(context.newPullRequest.allowed, true);
+  await actions.create(create);
+  assert.equal(calls.filter(call => call.method === 'POST' && call.endpoint.endsWith('/pulls')).length, 1);
+});
+test('empty branch stays blocked even if a prior PR used a different starting base', async () => {
+  const { actions, calls } = fixture({ closed: true, currentBase: 'd'.repeat(40), noChanges: true });
+  const context = await actions.context(selection);
+  assert.equal(context.newPullRequest.reason, 'no-commits');
+  await assert.rejects(actions.create(create), /no committed changes/);
+  assert(!calls.some(call => call.method === 'POST'));
+});
+test('unverifiable historical starting base fails closed', async () => {
+  const { actions, calls } = fixture({ closed: true, historicalBase: null });
+  await assert.rejects(actions.context(selection), /Cannot verify the starting base/);
+  await assert.rejects(actions.create(create), /Cannot verify the starting base/);
+  assert(!calls.some(call => call.method === 'POST'));
+});
 test('source metadata is a separate idempotent comment', async () => {
   const { actions, calls } = fixture();
   await actions.create({ ...create, source });
