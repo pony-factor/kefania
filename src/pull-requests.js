@@ -74,11 +74,12 @@ export function createActions({ request = githubRequest,
     try { return await current; }
     finally { if (locks.get(key) === current) locks.delete(key); }
   };
-  const openPr = async (scope, args) => {
-    const query = new URLSearchParams({ state: 'open', head: scope.qualifiedHead,
-      base: args.base, per_page: '100' });
+  // New PR is a branch-level action: do not produce a second open PR for a
+  // different base (including when the head belongs to a fork).
+  const openPr = async scope => {
+    const query = new URLSearchParams({ state: 'open', head: scope.qualifiedHead, per_page: '100' });
     const pulls = await scope.api(scope.root + '/pulls?' + query);
-    return pulls.find(pr => pr.base.ref === args.base && pr.head.label?.toLowerCase() === scope.qualifiedHead.toLowerCase()
+    return pulls.find(pr => pr.head.label?.toLowerCase() === scope.qualifiedHead.toLowerCase()
       && (!scope.cross || pr.head.repo?.full_name?.toLowerCase() === scope.source.toLowerCase()));
   };
   const recordSource = async (root, pr, source, api = request) => {
@@ -114,6 +115,7 @@ export function createActions({ request = githubRequest,
       await verifyFork(scope);
       const head = await readHead(scope, args);
       const comparison = await scope.api(comparisonPath(scope, args) + '?per_page=100');
+      const existing = await openPr(scope);
       if (scope.cross && comparison.head_commit?.sha !== head.sha) {
         throw new Error('The fork head changed during comparison. Read the comparison again.');
       }
@@ -125,6 +127,7 @@ export function createActions({ request = githubRequest,
       return {
         repository: scope.target, ...(scope.cross ? { headRepository: scope.source } : {}),
         head: args.head, base: args.base, headSha: head.sha,
+        ...(existing ? { existingPullRequest: summary(existing, scope) } : {}),
         baseSha: comparison.base_commit?.sha, aheadBy: comparison.ahead_by, behindBy: comparison.behind_by,
         files, incomplete: (comparison.files?.length || 0) >= 300 || files.some(file => file.omitted || file.patchTruncated || file.patchUnavailable),
         commitsTruncated: comparison.total_commits > (comparison.commits?.length || 0),
@@ -134,9 +137,9 @@ export function createActions({ request = githubRequest,
     async create(args) {
       const scope = selection(args);
       if (!scope.cross && args.head === args.base) throw new Error('Choose a head branch other than the base.');
-      return serial(scope.root + ':' + scope.source + ':' + args.head + ':' + args.base, async () => {
+      return serial(scope.root + ':' + scope.source + ':' + args.head, async () => {
         await verifyFork(scope);
-        let pr = await openPr(scope, args);
+        let pr = await openPr(scope);
         if (pr) return { ...summary(pr, scope), existing: true,
           source: await provenance(scope.root, pr, args.source, scope.api) };
         const comparison = await scope.api(comparisonPath(scope, args));
@@ -152,7 +155,7 @@ export function createActions({ request = githubRequest,
           ...(scope.cross ? { head_repo: scope.source.split('/')[1] } : {}) };
         try { pr = await scope.api(scope.root + '/pulls', { method: 'POST', body: payload }); }
         catch (error) {
-          const existing = await openPr(scope, args).catch(() => undefined);
+          const existing = await openPr(scope).catch(() => undefined);
           if (existing) return { ...summary(existing, scope), existing: true,
             source: await provenance(scope.root, existing, args.source, scope.api) };
           throw error;
@@ -165,9 +168,9 @@ export function createActions({ request = githubRequest,
     },
     async comment(args) {
       const scope = selection(args);
-      return serial(scope.root + ':' + scope.source + ':' + args.head + ':' + args.base, async () => {
+      return serial(scope.root + ':' + scope.source + ':' + args.head, async () => {
         await verifyFork(scope);
-        const pr = await openPr(scope, args);
+        const pr = await openPr(scope);
         if (!pr) throw new Error('No open pull request found for this head and base.');
         return { ...summary(pr, scope), source: await recordSource(scope.root, pr, args.source, scope.api) };
       });

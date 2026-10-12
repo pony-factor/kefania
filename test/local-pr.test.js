@@ -38,6 +38,21 @@ test('local drafter passes the verified head and generated text to the gh publis
   assert.equal(result.url, 'https://github.com/owner/repo/pull/1');
 });
 
+test('existing PR short-circuits both local drafting and browser context', async () => {
+  const existingPullRequest = { number: 42, url: 'https://github.com/owner/repo/pull/42', base: 'release', head: 'branch' };
+  const actions = {
+    async context() { return { aheadBy: 0, existingPullRequest }; },
+    async create() { assert.fail('Do not publish a second PR'); },
+  };
+  const draft = () => assert.fail('Do not start a model for an existing PR');
+  const input = { repository: 'owner/repo', head: 'branch' };
+  const context = await runLocalPullRequest({ ...input, contextOnly: true }, { actions, draft });
+  assert.deepEqual(context.existingPullRequest, existingPullRequest);
+  const result = await runLocalPullRequest(input, { actions, draft });
+  assert.equal(result.existing, true);
+  assert.equal(result.url, existingPullRequest.url);
+});
+
 test('draft-only performs no write and returns an unadorned description', async () => {
   const result = await runLocalPullRequest({ repository: 'owner/repo', head: 'branch', draftOnly: true }, {
     actions: { async context() { return { aheadBy: 1, headSha: 'verified' }; }, async create() { assert.fail('Must not publish'); } },
