@@ -21,9 +21,11 @@ function fixture({ existing = false, move = false, unrelated = false, noDiff = f
       parent: { full_name: unrelated ? 'other/project' : 'upstream/project' } };
     if (endpoint === 'repos/contributor/project/commits/fix-bug') return { sha: move ? changed : sha };
     if (endpoint.startsWith('repos/upstream/project/compare/')) return { ahead_by: noDiff ? 0 : 1, behind_by: 4,
-      head_commit: { sha }, base_commit: { sha: changed }, total_commits: 1, commits: [{}],
+      head_commit: { sha }, base_commit: { sha: changed },
+      merge_base_commit: { sha: changed }, total_commits: 1, commits: [{}],
       files: [{ filename: 'src/fix.js', status: 'modified', patch: '+ fix', additions: 1, deletions: 0 }] };
     if (endpoint.startsWith('repos/upstream/project/pulls?')) {
+      if (new URLSearchParams(endpoint.split('?')[1]).get('state') === 'closed') return [];
       if (!existing && !wrongForkPr) return [];
       return wrongForkPr ? [{ ...upstreamPr, head: { ...upstreamPr.head,
         repo: { full_name: 'contributor/other-fork' } } }] : [upstreamPr];
