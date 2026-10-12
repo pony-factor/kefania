@@ -6,7 +6,7 @@ const sha = 'a'.repeat(40);
 const selection = { owner: 'pony-factor', repo: 'kefania', head: 'feature', base: 'main' };
 const pr = { number: 42, html_url: 'https://github.com/pony-factor/kefania/pull/42', head: { ref: 'feature', label: 'pony-factor:feature' }, base: { ref: 'main' } };
 const source = { kind: 'chatgpt', uuid: '11111111-2222-4333-8444-555555555555', url: 'https://chatgpt.com/c/11111111-2222-4333-8444-555555555555' };
-function fixture({ existing = false, changed = false, noChanges = false, commentFailure = false, editFailure = false } = {}) {
+function fixture({ existing = false, changed = false, noChanges = false, commentFailure = false, editFailure = false, existingBase = 'main' } = {}) {
   const calls = [], comments = [];
   const request = async (endpoint, options = {}) => {
     calls.push({ endpoint, ...options });
@@ -16,7 +16,7 @@ function fixture({ existing = false, changed = false, noChanges = false, comment
       { filename: 'src/app.js', patch: '+fixed', additions: 1, deletions: 0, status: 'modified' },
     ] };
     if (endpoint.includes('/commits/')) return { sha: changed ? 'c'.repeat(40) : sha };
-    if (endpoint.includes('/pulls?')) return existing ? [pr] : [];
+    if (endpoint.includes('/pulls?')) return existing ? [{ ...pr, base: { ref: existingBase }, head: { ...pr.head, repo: { full_name: selection.owner + '/' + selection.repo } } }] : [];
     if (options.method === 'POST' && endpoint.endsWith('/pulls')) { existing = true; return pr; }
     if (options.method === 'PATCH') {
       if (editFailure) throw new Error('edit failed');
@@ -69,9 +69,22 @@ test('a failed description edit returns created PR without inviting duplicate cr
 });
 test('existing PR and concurrent calls do not create duplicates', async () => {
   const { actions, calls } = fixture();
-  await Promise.all([actions.create(create), actions.create(create)]);
-  assert.equal(calls.filter(call => call.method === 'POST' && call.endpoint.endsWith('/pulls')).length, 1);
+  await Promise.all([actions.create(create), actions.create({ ...create, base: 'release' })]);
+  assert.equal(calls.filter(call => call.method === 'POST' && call.endpoint.endsWith('/pulls')).length, 1,
+    'Different base targets must still share the head-branch creation lock');
 });
+test('an already-open branch is reused even when its PR targets a different base', async () => {
+  const { actions, calls } = fixture({ existing: true, existingBase: 'release' });
+  const context = await actions.context(selection);
+  assert.equal(context.existingPullRequest.number, 42);
+  assert.equal(context.existingPullRequest.base, 'release');
+  const result = await actions.create(create);
+  assert.equal(result.existing, true);
+  assert.equal(result.base, 'release');
+  assert(!calls.some(call => call.method === 'POST' && call.endpoint.endsWith('/pulls')));
+  assert(calls.some(call => call.endpoint.includes('head=pony-factor%3Afeature')));
+});
+
 test('source metadata is a separate idempotent comment', async () => {
   const { actions, calls } = fixture();
   await actions.create({ ...create, source });
