@@ -50,9 +50,13 @@ async function fixture(t) {
     assert.equal(options.headers.Authorization, 'Bearer test-installation-token');
     if (path.startsWith('repos/owner/repo/commits/')) return Response.json({ sha: state.currentSha });
     if (path.startsWith('repos/owner/repo/compare/')) return Response.json({ ahead_by: 1, total_commits: 1,
-      commits: [{}], base_commit: { sha: 'c'.repeat(40) }, files: [
+      commits: [{}], base_commit: { sha: 'c'.repeat(40) },
+      merge_base_commit: { sha: 'c'.repeat(40) }, files: [
         { filename: '.env', patch: 'must be withheld' }, { filename: 'src/feature.js', patch: '+change' }] });
-    if (path.startsWith('repos/owner/repo/pulls?')) return Response.json(state.pr ? [state.pr] : []);
+    if (path.startsWith('repos/owner/repo/pulls?')) {
+      const query = new URLSearchParams(path.split('?')[1]);
+      return Response.json(query.get('state') === 'closed' ? [] : state.pr ? [state.pr] : []);
+    }
     if (path === 'repos/owner/repo/pulls' && options.method === 'POST') {
       state.posts++;
       if (state.failWrite) return Response.json({ detail: 'upstream-private-detail' }, { status: 503 });
