@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { githubRequest, githubCliRequest } from './github.js';
 import { loadPreferences, writingInstructions } from './preferences.js';
+import { inspectPublishedMerge, formatRegressionReview } from './regression-review.js';
+import { secretPath } from './safe-paths.js';
 
 export const FOOTER = '';
 export const rules = async () => (await readFile(new URL('../PULL_REQUEST.md', import.meta.url), 'utf8')) + '\n\n' + writingInstructions(await loadPreferences());
@@ -15,11 +17,7 @@ function repository({ owner, repo }, allowedRepositories) {
   return `repos/${owner}/${repo}`;
 }
 
-export function secretPath(filename) {
-  return /(^|\/)(\.env(?:\..*)?|\.npmrc|\.pypirc|credentials(?:\..*)?|secrets?(?:\..*)?|id_(?:rsa|ed25519|ecdsa)|[^/]+\.(?:pem|p12|pfx|key))$/i.test(filename)
-    || /(^|\/)(?:\.ssh|\.aws|\.gnupg)\//i.test(filename);
-}
-
+export { secretPath } from './safe-paths.js';
 export function descriptionBody(body) {
   const text = body.trim();
   if (!text) throw new Error('Write a substantive PR description before publishing.');
@@ -124,6 +122,33 @@ export function createActions({ request = githubRequest,
     const created = await api(`${root}/issues/${pr.number}/comments`, { method: 'POST', body: { body: comment.body } });
     return { recorded: true, url: created.html_url, existing: false };
   };
+  const regressionReview = async (scope, pr, comparison) => {
+    const headSha = comparison.head_commit?.sha;
+    const baseSha = comparison.base_commit?.sha;
+    const mergeBaseSha = comparison.merge_base_commit?.sha;
+    if (!headSha || !baseSha || !mergeBaseSha) return { status: 'unavailable', reason: 'Missing comparison SHAs.' };
+    if (baseSha === mergeBaseSha) return { status: 'clear' };
+    const marker = '<!-- kefania-regression-review:' + headSha + ':' + baseSha + ' -->';
+    const review = await inspectPublishedMerge({ request: scope.api, root: scope.root,
+      pr, headSha, baseSha, mergeBaseSha });
+    if (review.status === 'clear') return { status: 'clear' };
+    try {
+      for (let page = 1; ; page++) {
+        const comments = await scope.api(scope.root + '/issues/' + pr.number + '/comments?per_page=100&page=' + page);
+        const existing = comments.find(item => item.body?.startsWith(marker));
+        if (existing) return { status: review.status, existing: true, url: existing.html_url };
+        if (comments.length < 100) break;
+      }
+      const body = formatRegressionReview(review, { headSha, baseSha, mergeBaseSha, root: scope.root, marker });
+      const comment = await scope.api(scope.root + '/issues/' + pr.number + '/comments',
+        { method: 'POST', body: { body } });
+      return { status: review.status, existing: false, url: comment.html_url };
+    } catch {
+      return { status: review.status, commented: false,
+        reason: 'PR exists, but the regression-review comment could not be published.' };
+    }
+  };
+
   const provenance = async (root, pr, source, api = request) => {
     if (!source) return { recorded: false, reason: 'No originating conversation supplied.' };
     try { return await recordSource(root, pr, source, api); }
@@ -173,8 +198,20 @@ export function createActions({ request = githubRequest,
       return serial(scope.root + ':' + scope.source + ':' + args.head, async () => {
         await verifyFork(scope);
         let pr = await openPr(scope);
-        if (pr) return { ...summary(pr, scope), existing: true,
-          source: await provenance(scope.root, pr, args.source, scope.api) };
+        if (pr) {
+          const existingBase = pr.base?.ref || args.base;
+          let review;
+          try {
+            const current = await scope.api(comparisonPath(scope, { ...args, base: existingBase }));
+            review = await regressionReview(scope, pr, current);
+          } catch {
+            // A supplementary review must never break source recording for an
+            // already-open PR, even when GitHub comparison data is unavailable.
+            review = { status: 'unavailable', reason: 'The current comparison could not be reviewed.' };
+          }
+          return { ...summary(pr, scope), existing: true,
+            review, source: await provenance(scope.root, pr, args.source, scope.api) };
+        }
         const comparison = await scope.api(comparisonPath(scope, args));
         const eligibility = await newPrEligibility(scope, comparison);
         if (!eligibility.allowed) {
@@ -203,6 +240,7 @@ export function createActions({ request = githubRequest,
         const description = args.prompt === undefined ? { finalized: true }
           : await finalize(scope.root, pr, finalBody, scope.api);
         return { ...summary(pr, scope), existing: false, description,
+          review: await regressionReview(scope, pr, comparison),
           source: await provenance(scope.root, pr, args.source, scope.api) };
       });
     },

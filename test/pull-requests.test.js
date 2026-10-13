@@ -1,18 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createActions, descriptionBody, FOOTER, initialPromptBody } from '../src/pull-requests.js';
+import { detectRegressions, inspectPublishedMerge, formatRegressionReview } from '../src/regression-review.js';
 
 const sha = 'a'.repeat(40);
 const selection = { owner: 'pony-factor', repo: 'kefania', head: 'feature', base: 'main' };
 const pr = { number: 42, html_url: 'https://github.com/pony-factor/kefania/pull/42', head: { ref: 'feature', label: 'pony-factor:feature' }, base: { ref: 'main' } };
 const source = { kind: 'chatgpt', uuid: '11111111-2222-4333-8444-555555555555', url: 'https://chatgpt.com/c/11111111-2222-4333-8444-555555555555' };
-function fixture({ existing = false, changed = false, noChanges = false, commentFailure = false,
+function fixture({ existing = false, changed = false, noChanges = false, commentFailure = false, regression = false,
   editFailure = false, existingBase = 'main', closed = false, historicalBase = 'b'.repeat(40),
   currentBase = 'b'.repeat(40) } = {}) {
   const calls = [], comments = [];
   const request = async (endpoint, options = {}) => {
     calls.push({ endpoint, ...options });
+    const baseSha = 'b'.repeat(40), mergeSha = 'e'.repeat(40);
+    const compact = "    const actionId = 'sweetiebot-compact-window-action';";
+    if (regression && endpoint.endsWith('/pulls/42')) return {
+      head: { sha }, base: { sha: baseSha }, merge_commit_sha: mergeSha };
+    if (regression && endpoint.endsWith('/commits/' + mergeSha)) return {
+      parents: [{ sha: baseSha }, { sha }] };
+    if (regression && endpoint.endsWith('/compare/' + currentBase + '...' + baseSha)) return {
+      files: [{ filename: 'assets/workbench/picker.js', patch: '+' + compact }] };
+    if (regression && endpoint.endsWith('/compare/' + baseSha + '...' + mergeSha)) return {
+      files: [{ filename: 'assets/workbench/picker.js', patch: '-' + compact }] };
     if (endpoint.includes('/compare/')) return { ahead_by: noChanges ? 0 : 1, total_commits: 1,
+      head_commit: { sha },
       base_commit: { sha: 'b'.repeat(40) }, merge_base_commit: { sha: currentBase }, commits: [{ sha }], files: [
       { filename: '.env', patch: 'PRIVATE_FIXTURE' },
       { filename: 'ordinary.txt', previous_filename: '.env.production', patch: 'PRIVATE_RENAME' },
@@ -155,4 +167,87 @@ test('repository scope rejects access before querying GitHub', async () => {
 test('source recorder reports pending PR for Sweetiebot polling', async () => {
   const { actions } = fixture();
   await assert.rejects(actions.comment({ ...selection, source }), /No open pull request found/);
+});
+
+
+test('compares verified merge output against newer main changes and flags feature loss', async () => {
+  const base = 'b'.repeat(40), older = 'c'.repeat(40), head = 'a'.repeat(40), merged = 'd'.repeat(40);
+  const example = '    const actionId = \'sweetiebot-compact-window-action\';';
+  const request = async endpoint => {
+    if (endpoint.endsWith('/pulls/42')) return {
+      base: { sha: base }, head: { sha: head }, merge_commit_sha: merged };
+    if (endpoint.endsWith('/commits/' + merged)) return {
+      parents: [{ sha: base }, { sha: head }] };
+    if (endpoint.endsWith('/compare/' + older + '...' + base)) return {
+      files: [{ filename: 'assets/workbench/picker.js', patch: '+' + example }] };
+    if (endpoint.endsWith('/compare/' + base + '...' + merged)) return {
+      files: [{ filename: 'assets/workbench/picker.js', patch: '-' + example }] };
+    throw new Error('Unexpected ' + endpoint);
+  };
+  const review = await inspectPublishedMerge({ request, root: 'repos/pony-factor/sweetiebot-SCM',
+    pr: { number: 42 }, headSha: head, baseSha: base, mergeBaseSha: older });
+  assert.equal(review.status, 'risks');
+  assert.equal(review.findings[0].lost, 1);
+  const body = formatRegressionReview(review, { headSha: head, baseSha: base, mergeBaseSha: older,
+    root: 'repos/pony-factor/sweetiebot-SCM', marker: '<!-- regression -->' });
+  assert.match(body, /assets\/workbench\/picker\.js/);
+  assert.match(body, /non-blocking/);
+  assert.match(body, /tested merge result/);
+});
+
+test('also flags resurrection of lines removed by newer main changes', () => {
+  const line = '  const removedOldSetting = true;';
+  const result = detectRegressions(
+    { files: [{ filename: 'src/code.js', patch: '-' + line }] },
+    { files: [{ filename: 'src/code.js', patch: '+' + line }] });
+  assert.equal(result.status, 'risks');
+  assert.equal(result.findings[0].restored, 1);
+});
+
+test('does not flag unrelated or non-overlapping changes', () => {
+  const result = detectRegressions(
+    { files: [{ filename: 'src/code.js', patch: '+const newFeature = true;' }] },
+    { files: [{ filename: 'src/code.js', patch: '-const unrelatedLegacyCode = true;' }] });
+  assert.equal(result.status, 'clear');
+});
+
+test('never treats omitted or secret-bearing patches as complete merge evidence', () => {
+  const partial = detectRegressions(
+    { files: [{ filename: 'src/code.js' }] },
+    { files: [{ filename: 'src/code.js', patch: '-const featureNowMissing = true;' }] });
+  assert.equal(partial.status, 'unavailable');
+  const secrets = detectRegressions(
+    { files: [{ filename: '.env.production', patch: '+const sensitiveCredential = true;' }] },
+    { files: [{ filename: '.env.production', patch: '-const sensitiveCredential = true;' }] });
+  assert.equal(secrets.status, 'clear');
+});
+
+test('does not certify a missing or mismatched test merge', async () => {
+  for (const mergeSha of [undefined, 'd'.repeat(40)]) {
+    const request = async endpoint => {
+      if (endpoint.endsWith('/pulls/42')) return {
+        base: { sha: 'b'.repeat(40) }, head: { sha: 'a'.repeat(40) },
+        merge_commit_sha: mergeSha };
+      return { parents: [{ sha: '0'.repeat(40) }, { sha: 'a'.repeat(40) }] };
+    };
+    const result = await inspectPublishedMerge({ request, root: 'repos/pony-factor/kefania',
+      pr: { number: 42 }, headSha: 'a'.repeat(40), baseSha: 'b'.repeat(40),
+      mergeBaseSha: 'c'.repeat(40) });
+    assert.equal(result.status, 'unavailable');
+  }
+});
+
+
+test('publishing flags verified newer-main reversions in an idempotent human-review comment', async () => {
+  const { actions, calls } = fixture({ regression: true, currentBase: 'c'.repeat(40) });
+  const result = await actions.create({ ...create, source });
+  assert.equal(result.review.status, 'risks');
+  const published = calls.filter(call => call.method === 'POST' && call.endpoint.endsWith('/comments'));
+  assert.equal(published.length, 2, 'one risk comment and one conversation-provenance comment');
+  assert(published.some(call => call.body.body.includes('assets/workbench/picker.js')));
+  assert(published.some(call => call.body.body.includes('non-blocking')));
+  const repeated = await actions.create({ ...create, source });
+  assert.equal(repeated.existing, true);
+  assert.equal(repeated.review.status, 'risks');
+  assert.equal(calls.filter(call => call.method === 'POST' && call.endpoint.endsWith('/comments')).length, 2);
 });
