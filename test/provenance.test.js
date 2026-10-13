@@ -34,6 +34,7 @@ test('publishing an existing PR adds the supplied conversation once', async () =
   const second = await actions.create(args);
   assert.equal(first.existing, true);
   assert.equal(second.existing, true);
+  assert.equal(second.review.status, 'unavailable');
   assert.equal(commentPosts, 1);
   assert.equal(second.source.existing, true);
   assert.match(comments[0].body, /11111111-2222-4333-8444-555555555555/);

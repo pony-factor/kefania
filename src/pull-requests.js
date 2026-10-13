@@ -200,10 +200,17 @@ export function createActions({ request = githubRequest,
         let pr = await openPr(scope);
         if (pr) {
           const existingBase = pr.base?.ref || args.base;
-          const current = await scope.api(comparisonPath(scope, { ...args, base: existingBase }));
+          let review;
+          try {
+            const current = await scope.api(comparisonPath(scope, { ...args, base: existingBase }));
+            review = await regressionReview(scope, pr, current);
+          } catch {
+            // A supplementary review must never break source recording for an
+            // already-open PR, even when GitHub comparison data is unavailable.
+            review = { status: 'unavailable', reason: 'The current comparison could not be reviewed.' };
+          }
           return { ...summary(pr, scope), existing: true,
-            review: await regressionReview(scope, pr, current),
-            source: await provenance(scope.root, pr, args.source, scope.api) };
+            review, source: await provenance(scope.root, pr, args.source, scope.api) };
         }
         const comparison = await scope.api(comparisonPath(scope, args));
         const eligibility = await newPrEligibility(scope, comparison);
