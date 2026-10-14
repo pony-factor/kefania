@@ -88,10 +88,19 @@ Under **Choose where Kefania can work**, expand **Set up Sweetiebot's PR button*
 
 **Set up or repair** installs missing dependencies via `npm ci --ignore-scripts` in Kefania's own checkout and creates the sibling directory symlink if the destination is absent. It never overwrites an existing directory or conflicting/broken symlink. **Update Kefania** first checks that its checkout is on clean `main`, fast-forwards from `pony-factor/kefania` with `git pull --ff-only`, and reinstalls dependencies. These actions are opt-in and do not modify the selected SEC-publications checkout. Restart a running Kefania setup server after updating. A ready indicator verifies local files and paths, **not** whether the VS Code PR button was clicked successfully.
 
+## Permanent pony research library
+
+Kafania keeps curated character information in the tracked [`ponies/`](ponies/) directory, not in `~/.cache` and not in ChatGPT history. Files are readable JSON organized by catalog pack and canonical slug, with no automatic expiration. Sweetiebot can create an initial unreviewed draft after independent character research, but subsequent lookups cannot overwrite an existing record. Existing 90-day cache files are not migrated.
+
+The MCP prompt `curate_pony` guides a review of naming, appearance, speaking status, appearances, provenance, and artwork. `pony_get_profile` and `pony_list_profiles` read existing records; `pony_curate_profile` requires explicit user approval and a matching revision to modify them. Each profile can keep multiple attributed HTTPS artwork URLs; the featured image rotates weekly without changing the biography. Writes modify the **local repository working tree**, not GitHub, and do not commit or push. See [pony curation documentation](docs/PONY_CACHE.md).
+
 ## Tools
 
 | Tool | Purpose |
 | --- | --- |
+| `pony_get_profile` | Read a durable curated pony profile, revision and featured artwork. |
+| `pony_list_profiles` | Browse draft and reviewed profiles by pack. |
+| `pony_curate_profile` | Save an explicitly approved record to the local `ponies/` tree, using revision checks. |
 | `kefania_status` | Check GitHub access and repository scope without writing. |
 | `kefania_drafting_rules` | Read the canonical instructions. |
 | `github_get_pull_request_context` | Read the published branch comparison, return its head SHA and drafting rules. |
@@ -99,7 +108,7 @@ Under **Choose where Kefania can work**, expand **Set up Sweetiebot's PR button*
 | `github_comment_pull_request_source` | Record supplied originating conversation metadata once on an open PR. |
 | `github_create_issue` | Preserve a supplied prompt in edit history and publish the final issue text. |
 
-The server also exposes `kefania://pull-request/rules` and the `draft_pull_request` prompt.
+The server also exposes `kefania://pull-request/rules` and the `draft_pull_request` and `curate_pony` prompts.
 
 Read the comparison before creating a PR and pass its `headSha` as `expectedHeadSha`. Creation rejects a changed head or a branch with no committed difference from the base. This version supports branches in the selected repository. Comparisons flag omitted, unavailable, or truncated patches; do not describe unseen changes as reviewed.
 
