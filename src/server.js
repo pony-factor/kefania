@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { createActions, rules } from './pull-requests.js';
+import { readPonyCache, listPonyProfiles, curatePonyProfile } from './pony-cache.js';
 
 const component = z.string().min(1).max(100).regex(/^[A-Za-z0-9_.-]+$/);
 const ref = z.string().min(1).max(255).refine(value => !/[\s\x00-\x1f:?*\[\\~^]/.test(value) && !value.includes('..') && !value.startsWith('-'), 'Use a branch name without an owner prefix or revision expression.');
@@ -18,6 +19,28 @@ const source = z.object({
   if (value.kind === 'chatgpt') return url.hostname === 'chatgpt.com' && ['/c/', '/uc/'].some(prefix => url.pathname === prefix + value.uuid);
   return url.hostname === 'vscode.dev' && url.pathname === '/redirect' && url.searchParams.get('url') === `vscode://jfwooten4.scm-toolkit-workspace-search/codex/${value.uuid}`;
 }, 'Source must link to the supplied conversation UUID.');
+
+const ponyIdentity = z.object({
+  packId: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,127}$/),
+  slug: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,127}$/),
+  canonicalSlug: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,127}$/).optional(),
+});
+const ponyLink = z.object({ url: z.string().url().startsWith('https://'), label: z.string().max(500).optional() });
+const ponyArt = z.object({ url: z.string().url().startsWith('https://'),
+  alt: z.string().max(500).optional(), credit: z.string().max(500).optional(),
+  source: z.string().url().startsWith('https://').optional() });
+const ponyCuration = {
+  pony: ponyIdentity,
+  expectedRevision: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
+  approved: z.literal(true).describe('Only send after the user explicitly approves the complete proposed record.'),
+  status: z.enum(['draft', 'reviewed']).default('draft'),
+  profile: z.string().trim().min(1).max(60000),
+  name: z.string().max(200).optional(), aliases: z.array(z.string().max(200)).max(30).optional(),
+  appearance: z.string().max(5000).optional(), speakingStatus: z.string().max(300).optional(),
+  appearances: z.array(z.string().max(500)).max(30).optional(),
+  namingHistory: z.string().max(5000).optional(),
+  sources: z.array(ponyLink).max(30).optional(), artwork: z.array(ponyArt).max(30).optional(),
+};
 
 export const contextInputSchema = z.object(selection);
 export const publishInputSchema = z.object({ ...selection, expectedHeadSha: z.string().regex(/^[a-f0-9]{40}$/i),
@@ -66,6 +89,29 @@ export function createMcpServer({ actions = createActions() } = {}) {
       assignees: z.array(component).max(10).optional() },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   }, call(actions.issue));
+  server.registerTool('pony_get_profile', {
+    description: 'Read a permanent curated pony record from Kefania/ponies with revision and this week’s featured artwork. A miss means the character has not been recorded; there is no expiry.',
+    inputSchema: { pony: ponyIdentity }, annotations: { ...readOnly, openWorldHint: false },
+  }, call(async ({ pony }) => readPonyCache(pony)));
+  server.registerTool('pony_list_profiles', {
+    description: 'Browse reviewed and draft character records already stored in Kefania/ponies.',
+    inputSchema: { packId: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,127}$/).optional() },
+    annotations: { ...readOnly, openWorldHint: false },
+  }, call(async ({ packId }) => {
+    const items = await listPonyProfiles({ packId });
+    return { ponies: items.slice(0, 200), total: items.length, truncated: items.length > 200 };
+  }));
+  server.registerTool('pony_curate_profile', {
+    description: 'Write an explicitly user-approved pony record into Kefania/ponies/<pack>/<slug>.json. Read the existing revision first; present sources, uncertain facts, and artwork attribution to the user before approval. This changes the local repository working tree only; it does not commit or push.',
+    inputSchema: ponyCuration,
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+  }, call(async ({ pony, ...details }) => curatePonyProfile(pony, details)));
+  server.registerPrompt('curate_pony', {
+    description: 'Guide research and human review of a permanent pony profile, including optional art rotation.',
+    argsSchema: { packId: z.string(), slug: z.string() },
+  }, async ({ packId, slug }) => ({ messages: [{ role: 'user', content: { type: 'text',
+    text: 'Curate pony ' + packId + '/' + slug + '. First call pony_get_profile and use its revision. Research facts with independent HTTPS sources, distinguish official names from fan labels, and review appearance, speaking status, appearances, aliases, and naming history. Offer attributed artwork links; this gallery rotates weekly without expiring the biography. Show the proposed complete record, highlight uncertainty, ask for explicit approval, then call pony_curate_profile with approved=true and expectedRevision. Never place pony information in GitHub pull-request content. Saving changes local files only; obtain separate authorization for any Git commit or push.'
+  } }] }));
   server.registerResource('drafting-rules', 'kefania://pull-request/rules', {
     description: 'Canonical Kefania PR drafting instructions', mimeType: 'text/markdown',
   }, async uri => ({ contents: [{ uri: uri.href, mimeType: 'text/markdown', text: await rules() }] }));
