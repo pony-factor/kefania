@@ -14,7 +14,11 @@ When the current work meaningfully extends, fixes, supersedes, reverses, depends
 
 Cross-reference that history in the PR description when it helps explain the change. Prefer the related pull request when it captures the broader context; cite a specific commit when the commit itself is the useful reference. Briefly state the relationship instead of dropping unexplained links.
 
-Write every GitHub reference as its full URL on its own. Do not prepend a PR or issue number, wrap the URL in parentheses, or use a Markdown link label. Include each URL exactly once. For non-GitHub sources, use a normal descriptive Markdown link.
+**Weave GitHub backreferences into the narrative.** Put the full GitHub URL in the same sentence that explains how the earlier work relates to this change, rather than introducing a detached link after a colon, adding a standalone reference line, or collecting links in a bibliography-style list. Explain the connection with natural prose, not just a PR number or a formulaic “related work” label. A sentence inside a substantive bullet is fine.
+
+For example: “The revised note builds on the CCS history documented in https://github.com/owner/repo/pull/123 by adding the missing primary source.” Avoid: “Earlier CCS research:” followed by the URL on its own line. The URL should be part of the sentence, not a separate citation item.
+
+Write every GitHub reference as its full literal HTTPS URL, without a Markdown link label, parentheses, or a prefixed PR or issue number. Include each URL exactly once. For non-GitHub sources, use a normal descriptive Markdown link.
 
 Use affected files, symbols, features, issue language, and distinctive wording from the diff to find likely history. Follow the evidence far enough to identify a real connection, but do not turn PR drafting into an exhaustive history search.
 

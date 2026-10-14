@@ -19,6 +19,7 @@ test('stdio handshake, tool discovery, and canonical instructions', async () => 
     const rules = await client.callTool({ name: 'kefania_drafting_rules', arguments: {} });
     assert.equal(rules.isError, undefined);
     assert.match(rules.content[0].text, /Draft from the repository evidence/);
+    assert.match(rules.content[0].text, /Weave GitHub backreferences into the narrative/);
     const invalid = await client.callTool({ name: 'github_comment_pull_request_source', arguments: {
       owner: 'pony-factor', repo: 'kefania', head: 'branch', source: {
         kind: 'chatgpt', uuid: '11111111-2222-4333-8444-555555555555', url: 'https://example.com/not-the-conversation',

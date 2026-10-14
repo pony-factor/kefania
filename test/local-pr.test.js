@@ -29,7 +29,7 @@ test('local drafter passes the verified head and generated text to the gh publis
       async context(selection) { assert.equal(selection.base, 'main'); return { aheadBy: 1, headSha: 'verified', files: [] }; },
       async create(args) { published = args; return { url: 'https://github.com/owner/repo/pull/1' }; },
     },
-    async draft(prompt) { assert.match(prompt, /Do not publish anything or use tools/); return { title: '🛠️ Fix PR drafting', body: 'Explain the change.' }; },
+    async draft(prompt) { assert.match(prompt, /Do not publish anything or use tools/); assert.match(prompt, /Weave GitHub backreferences into the narrative/); return { title: '🛠️ Fix PR drafting', body: 'Explain the change.' }; },
   });
   assert.equal(published.expectedHeadSha, 'verified');
   assert.equal(published.title, '🛠️ Fix PR drafting');
