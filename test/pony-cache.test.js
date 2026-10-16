@@ -21,7 +21,8 @@ test('permanent readable files unify aliases and isolate generations', async () 
   assert.equal((await writePonyCache(pony, 'Sourced permanent profile.', { directory })).stored, true);
   const entry = await readPonyCache({ ...pony, slug: 'celena' }, { directory, now: () => Date.now() + 1000 * 86400 * 365 });
   assert.equal(entry.hit, true, 'Profiles do not expire over time.');
-  assert.equal(entry.profile, 'Sourced permanent profile.');
+  assert.match(entry.profile, /^Sourced permanent profile\./);
+  assert.match(entry.profile, /https:\/\/example\.org\/celena/, 'Stored source references remain visible');
   assert.equal(entry.record.status, 'draft');
   assert.equal(ponyCacheKey(pony), 'g4-mares/celena');
   assert.equal((await readdir(join(directory, 'g4-mares')))[0], 'celena.json');
