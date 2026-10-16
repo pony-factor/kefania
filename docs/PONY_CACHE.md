@@ -13,6 +13,12 @@ Sweetiebot PR #270 calls `node src/pony-cache.js` with a JSON request on stdin:
 
 Files use `<packId>/<canonicalSlug>.json`, so aliases share the canonical record while G4/G5 collisions remain separate. Catalog source changes do not invalidate approved character facts. The 60 KB profile size limit remains. No search or publication operation commits or pushes the new working-tree files.
 
+### Unified source-reference index
+
+`ponies/sources.json` is the versioned, Git-trackable reference index for sources migrated from Sweetiebot's branch-name packs. It groups HTTPS `[{"url":"…","label":"…"}]` entries under `packs[packId][canonicalSlug]`. All 119 previously listed pony references were moved here; Leaf Litter also has a second cheekibat post containing artwork and context. This is a shared reference list, **not 119 generated biographies**.
+
+A lookup for a pony without a saved profile returns `hit:false` alongside its indexed `sources`; the independent research workflow still runs, receiving those sources as starting points rather than unverified facts. On a profile hit, its references are merged with any record-specific sources and surfaced on the pony page when absent from the original Markdown. Initial `put` operations copy indexed references into new records; curated saves merge them without overwriting existing curated labels or unrelated sources. Keep edits to migrated references in this index, not in the branch-name catalog. Cache use remains local unless changes are explicitly committed to GitHub.
+
 ## Guided MCP workflow
 
 A connected, authorized **local** Kafania MCP client can:
