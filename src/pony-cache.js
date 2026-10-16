@@ -84,14 +84,14 @@ export async function readPonyCache(pony, { directory = ponyCacheDirectory(), no
     record.sources = mergeReferences(record.sources || [], references);
     const featuredArtwork = rotateArtwork(record, now);
     const image = featuredArtwork
-      ? '![' + (featuredArtwork.alt || record.name || record.slug).replace(/[\\[\\]]/g, '') + '](' + featuredArtwork.url + ')\\n'
-        + (featuredArtwork.source ? 'Artwork source: ' + featuredArtwork.source + '\\n' : '') + '\\n'
+      ? '![' + (featuredArtwork.alt || record.name || record.slug).replace(/[\[\]]/g, '') + '](' + featuredArtwork.url + ')\n'
+        + (featuredArtwork.source ? 'Artwork source: ' + featuredArtwork.source + '\n' : '') + '\n'
       : '';
     // Keep migrated references visible even in profiles written before the migration.
     const missing = record.sources.filter(ref => !record.profile.includes(ref.url));
     const sourceText = missing.length
-      ? '\\n\\n### Source references\\n' + missing.map(ref =>
-          '- [' + (ref.label || 'Reference').replace(/[\\[\\]]/g, '') + '](' + ref.url + ')').join('\\n')
+      ? '\n\n### Source references\n' + missing.map(ref =>
+          '- [' + (ref.label || 'Reference').replace(/[\[\]]/g, '') + '](' + ref.url + ')').join('\n')
       : '';
     return { hit: true, profile: image + record.profile + sourceText,
       record, revision: digest(raw), featuredArtwork, sources: record.sources };
