@@ -35,6 +35,29 @@ function validateLinks(values, artwork = false) {
     return result;
   });
 }
+// Pack-scoped URLs are maintained alongside the durable pony records, not in
+// Sweetiebot's branch-name catalog. Records may add other curated references.
+function mergeReferences(...lists) {
+  const seen = new Set(), combined = [];
+  for (const item of lists.flat()) {
+    if (!item || !https(item.url) || seen.has(item.url)) continue;
+    seen.add(item.url);
+    combined.push({ url: item.url, ...(typeof item.label === 'string' ? { label: item.label } : {}) });
+  }
+  return combined.slice(0, 30);
+}
+async function catalogReferences(pony, directory) {
+  try {
+    const [packId, slug] = ponyCacheKey(pony).split('/');
+    const index = JSON.parse(await readFile(join(directory, 'sources.json'), 'utf8'));
+    if (index.version !== 1) return [];
+    const entries = index.packs?.[packId]?.[slug];
+    return entries ? validateLinks(entries) : [];
+  } catch {
+    // A missing or malformed reference index never prevents local research.
+    return [];
+  }
+}
 const compactText = (value, limit = 5000) => typeof value === 'string' && value.length <= limit ? value : '';
 const boundedList = (value, limit = 500) => {
   if (!Array.isArray(value) || value.length > 30 || value.some(v => typeof v !== 'string' || v.length > limit))
@@ -49,19 +72,32 @@ function rotateArtwork(record, now) {
 }
 export async function readPonyCache(pony, { directory = ponyCacheDirectory(), now = Date.now } = {}) {
   const key = ponyCacheKey(pony);
+  const references = await catalogReferences(pony, directory);
   try {
     const raw = await readFile(filePath(pony, directory), 'utf8');
     const record = JSON.parse(raw);
     if (record.version !== PONY_CACHE_VERSION || record.packId + '/' + record.slug !== key
       || typeof record.profile !== 'string' || !record.profile.trim()
-      || Buffer.byteLength(record.profile, 'utf8') > MAX_PONY_PROFILE_BYTES) return { hit: false };
+      || Buffer.byteLength(record.profile, 'utf8') > MAX_PONY_PROFILE_BYTES) {
+      return references.length ? { hit: false, sources: references } : { hit: false };
+    }
+    record.sources = mergeReferences(record.sources || [], references);
     const featuredArtwork = rotateArtwork(record, now);
     const image = featuredArtwork
       ? '![' + (featuredArtwork.alt || record.name || record.slug).replace(/[\[\]]/g, '') + '](' + featuredArtwork.url + ')\n'
         + (featuredArtwork.source ? 'Artwork source: ' + featuredArtwork.source + '\n' : '') + '\n'
       : '';
-    return { hit: true, profile: image + record.profile, record, revision: digest(raw), featuredArtwork };
-  } catch { return { hit: false }; }
+    // Keep migrated references visible even in profiles written before the migration.
+    const missing = record.sources.filter(ref => !record.profile.includes(ref.url));
+    const sourceText = missing.length
+      ? '\n\n### Source references\n' + missing.map(ref =>
+          '- [' + (ref.label || 'Reference').replace(/[\[\]]/g, '') + '](' + ref.url + ')').join('\n')
+      : '';
+    return { hit: true, profile: image + record.profile + sourceText,
+      record, revision: digest(raw), featuredArtwork, sources: record.sources };
+  } catch {
+    return references.length ? { hit: false, sources: references } : { hit: false };
+  }
 }
 async function saveFile(path, record, createOnly = false) {
   await mkdir(dirname(path), { recursive: true, mode: 0o755 });
@@ -77,9 +113,10 @@ export async function writePonyCache(pony, profile, { directory = ponyCacheDirec
   if (typeof profile !== 'string' || !profile.trim()
     || Buffer.byteLength(profile, 'utf8') > MAX_PONY_PROFILE_BYTES) throw new Error('Invalid pony profile.');
   const date = new Date(now()).toISOString();
+  const references = await catalogReferences(pony, directory);
   const record = { version: PONY_CACHE_VERSION, packId, slug, name: compactText(pony.name, 200) || slug,
     status: 'draft', profile, aliases: [], appearance: '', speakingStatus: '', appearances: [],
-    namingHistory: '', sources: https(pony.source) ? [{ url: pony.source, label: 'Catalog source' }] : [],
+    namingHistory: '', sources: mergeReferences(references, https(pony.source) ? [{ url: pony.source, label: 'Catalog source' }] : []),
     artwork: [], createdAt: date, updatedAt: date };
   try {
     await saveFile(filePath(pony, directory), record, true);
@@ -107,7 +144,7 @@ export async function curatePonyProfile(pony, details, { directory = ponyCacheDi
     speakingStatus: compactText(details.speakingStatus ?? existing.speakingStatus, 300),
     appearances: boundedList(details.appearances ?? existing.appearances ?? []),
     namingHistory: compactText(details.namingHistory ?? existing.namingHistory),
-    sources: validateLinks(details.sources ?? existing.sources ?? []),
+    sources: mergeReferences(validateLinks(details.sources ?? existing.sources ?? old.sources ?? []), await catalogReferences(pony, directory)),
     artwork: validateLinks(details.artwork ?? existing.artwork ?? [], true),
     createdAt: existing.createdAt || date, updatedAt: date };
   if (record.status === 'reviewed' && record.sources.length === 0)

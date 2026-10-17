@@ -4,6 +4,8 @@ This directory holds durable, human-reviewed character research as JSON files. E
 
 The profile is reusable text; `sources` are attributed HTTPS reference pages; `artwork` is a list of attributed HTTPS image URLs that rotate weekly when viewed, without refreshing or overwriting character facts.
 
+`sources.json` holds the pack-scoped reference index migrated from Sweetiebot's branch-name catalog (119 ponies, 120 reference URLs including both Leaf Litter posts). Reference-only entries do not create placeholder biographies. When a pony is first researched, Kefania seeds its record with all indexed references, merges them into existing profiles at read time, and retains them during curation. Update source links here rather than in Sweetiebot's branch-name packs. The index stores links, not downloaded image bytes.
+
 The Kafania `curate_pony` MCP prompt guides research and requests explicit approval before `pony_curate_profile` modifies a local file. A Sweetiebot first lookup may create an unreviewed `draft`, but never replaces an existing record. Reviewed records do not expire.
 
 Changes stay uncommitted until separately reviewed and committed. See [the library guide](../docs/PONY_CACHE.md).

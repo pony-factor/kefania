@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -21,7 +21,8 @@ test('permanent readable files unify aliases and isolate generations', async () 
   assert.equal((await writePonyCache(pony, 'Sourced permanent profile.', { directory })).stored, true);
   const entry = await readPonyCache({ ...pony, slug: 'celena' }, { directory, now: () => Date.now() + 1000 * 86400 * 365 });
   assert.equal(entry.hit, true, 'Profiles do not expire over time.');
-  assert.equal(entry.profile, 'Sourced permanent profile.');
+  assert.match(entry.profile, /^Sourced permanent profile\./);
+  assert.match(entry.profile, /https:\/\/example\.org\/celena/, 'Stored source references remain visible');
   assert.equal(entry.record.status, 'draft');
   assert.equal(ponyCacheKey(pony), 'g4-mares/celena');
   assert.equal((await readdir(join(directory, 'g4-mares')))[0], 'celena.json');
@@ -78,3 +79,47 @@ test('rejects path traversal, bad links and invalid research', async () => sandb
   assert.deepEqual(await ponyCacheAction({ action: 'get', pony }, { directory }), { hit: false });
   assert.deepEqual(await listPonyProfiles({ directory }), []);
 }));
+
+test('pack references survive the migration and enrich first research without a stub profile', async () => sandbox(async directory => {
+  const leaf = { packId: 'fandom-ocs', slug: 'leaf-litter', name: 'Leaf Litter' };
+  const references = [
+    { url: 'https://x.com/cheekibat/status/2111134531751493961', label: 'Character post' },
+    { url: 'https://x.com/cheekibat/status/2111066237820133658', label: 'Artwork and context' },
+  ];
+  await writeFile(join(directory, 'sources.json'), JSON.stringify({
+    version: 1, packs: { 'fandom-ocs': { 'leaf-litter': references } },
+  }));
+  const missing = await readPonyCache(leaf, { directory });
+  assert.equal(missing.hit, false, 'References alone must not skip independent research');
+  assert.deepEqual(missing.sources, references);
+  const first = await writePonyCache(leaf, 'Newly researched character biography.', { directory });
+  assert.equal(first.stored, true);
+  const cached = await readPonyCache(leaf, { directory });
+  assert.equal(cached.hit, true);
+  assert.deepEqual(cached.record.sources, references);
+  assert.match(cached.profile, /### Source references/);
+  assert(cached.profile.includes(references[1].url), 'Both source pages should appear in the profile');
+  assert.equal((await writePonyCache(leaf, 'Do not overwrite', { directory })).stored, false);
+
+  await curatePonyProfile(leaf, {
+    approved: true, expectedRevision: cached.revision, status: 'reviewed',
+    profile: 'Verified original character.', sources: [],
+  }, { directory });
+  const reviewed = await readPonyCache(leaf, { directory });
+  assert.equal(reviewed.record.status, 'reviewed');
+  assert.deepEqual(reviewed.record.sources, references,
+    'Even explicit curation must not silently discard migrated reference pages');
+}));
+
+test('the checked-in catalog reference index retains both Leaf Litter posts', async () => {
+  const index = JSON.parse(await readFile(new URL('../ponies/sources.json', import.meta.url), 'utf8'));
+  assert.equal(index.version, 1);
+  const urls = index.packs['fandom-ocs']['leaf-litter'].map(source => source.url);
+  assert.deepEqual(urls, [
+    'https://x.com/cheekibat/status/2111134531751493961',
+    'https://x.com/cheekibat/status/2111066237820133658',
+  ]);
+  const migrated = Object.values(index.packs).flatMap(pack => Object.values(pack));
+  assert.equal(migrated.length, 119);
+  assert.equal(migrated.reduce((total, refs) => total + refs.length, 0), 120);
+});

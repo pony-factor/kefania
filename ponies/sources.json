@@ -1,0 +1,755 @@
+{
+  "version": 1,
+  "packs": {
+    "g4-mares": {
+      "aloe-vera": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Credits/Season_nine#Deep_Tissue_Memories",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "tempest-shadow": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Tempest_Shadow",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "the-headless-horse": [
+        {
+          "url": "https://mlp.fandom.com/wiki/The_Headless_Horse",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "the-olden-pony": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_ponies/Elders",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "fizzlepop-berrytwist": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Tempest_Shadow",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "forward-thinking-friendship-student": [
+        {
+          "url": "https://mlp-gameloft.fandom.com/wiki/Prank_to_the_Future",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "g4-stallions": {
+      "clean-sweep": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_ponies/Earth_ponies/Stallions",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "mayor-baltimare": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_ponies/Earth_ponies/Stallions",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "dr-whooves": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Dr._Hooves",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "coiffed-waiter-pony": [
+        {
+          "url": "https://mlp-gameloft.fandom.com/wiki/Coiffed_Waiter_Pony",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "g4-fillies": {
+      "cloudy-daze": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_ponies/Foals",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "g4-colts": {
+      "button-mash": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Button_Mash",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "g4-creatures": {
+      "queen-novo": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Queen_Novo",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "capper-dapperpaws": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Capper",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "queen-chrysalis": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Queen_Chrysalis",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "lord-tirek": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Lord_Tirek",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "scorpan": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Scorpan",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "g4-pets": {
+      "angel": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Category:Pets",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "constance": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Constance",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "boulder": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Boulder",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "albus": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_non-pony_characters",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "quincy": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Relationships",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "ray": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Relationships",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "hummingway": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_non-pony_characters/Avians",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "elizabeak": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_non-pony_characters/Avians",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "henrita": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_non-pony_characters/Avians",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "judy": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_non-pony_characters/Avians",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "edgar": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_non-pony_characters/Avians",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "castor": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_non-pony_characters/Avians",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "pollux": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_non-pony_characters/Avians",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "firebrand": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_non-pony_characters/Avians",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "denise": [
+        {
+          "url": "https://mlp.fandom.com/wiki/List_of_non-pony_characters/Avians",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "g4-caricatures": {
+      "grogar": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Grogar",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "plainity": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Friendship_University",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "idw-comics": {
+      "celena": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Sailor_Moon_ponies",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "equestria-girls": {
+      "principal-cinch": [
+        {
+          "url": "https://mlp.fandom.com/wiki/My_Little_Pony_Equestria_Girls_(franchise)",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "adagio-dazzle": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Adagio_Dazzle",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "aria-blaze": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Aria_Blaze",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "sonata-dusk": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Sonata_Dusk",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "sour-sweet": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Shadowbolts",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "sunny-flare": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Shadowbolts",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "indigo-zap": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Shadowbolts",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "sugarcoat": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Shadowbolts",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "lemon-zest": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Shadowbolts",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "flash-sentry": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Flash_Sentry",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "juniper-montage": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Juniper_Montage",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "gloriosa-daisy": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Gloriosa_Daisy",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "timber-spruce": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Timber_Spruce",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "wallflower-blush": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Wallflower_Blush",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "vignette-valencia": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Vignette_Valencia",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "kiwi-lollipop": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Kiwi_Lollipop_and_Supernova_Zap",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "supernova-zap": [
+        {
+          "url": "https://mlp.fandom.com/wiki/Kiwi_Lollipop_and_Supernova_Zap",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "g5-remaining": {
+      "arpeggia": [
+        {
+          "url": "https://g5mlp.fandom.com/wiki/Arpeggia",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "tracy-tailspin": [
+        {
+          "url": "https://g5mlp.fandom.com/wiki/Tracy_Tailspin",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "princess-anemone": [
+        {
+          "url": "https://g5mlp.fandom.com/wiki/Princess_Anemone",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "goldie-fortune": [
+        {
+          "url": "https://g5mlp.fandom.com/wiki/Mini_Figure_ID",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "scout-kindheart": [
+        {
+          "url": "https://g5mlp.fandom.com/wiki/List_of_Ponies/By_Character",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "tamers12345": {
+      "fractured": [
+        {
+          "url": "https://tamers12345.fandom.com/wiki/Tamers12345_My_Little_Pony_Characters",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "dazzle-feather": [
+        {
+          "url": "https://tamers12345.fandom.com/wiki/Tamers12345_My_Little_Pony_Characters",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "starsong": [
+        {
+          "url": "https://tamers12345.fandom.com/wiki/StarSong",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "vylet-pony": {
+      "can-opener": [
+        {
+          "url": "https://www.vyletpony.com/can-opener",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "creekflow": [
+        {
+          "url": "https://www.vyletpony.com/creekflow",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "vid": [
+        {
+          "url": "https://www.vyletpony.com/top-five-videos-oc",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "dubstep-growl": [
+        {
+          "url": "https://www.vyletpony.com/dubstep-growl",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "io-jayce": [
+        {
+          "url": "https://www.vyletpony.com/io-jayce",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "lfo": {
+      "flower": [
+        {
+          "url": "https://www.patreon.com/posts/flowers-journey-95012323",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "sweet-shot": [
+        {
+          "url": "https://www.castingcall.club/projects/flowers-journey",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "kefania": [
+        {
+          "url": "https://www.castingcall.club/projects/flowers-journey",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "mobli": [
+        {
+          "url": "https://www.patreon.com/the1lfo/posts/flowers-journey-151724312",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "lindsey": [
+        {
+          "url": "https://music.amazon.com/tracks/B0FP6XW5QV",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "fandom-ocs": {
+      "cream-heart": [
+        {
+          "url": "https://www.fimfiction.net/group/199740/buttons-mom",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "leaf-litter": [
+        {
+          "url": "https://x.com/cheekibat/status/2111134531751493961",
+          "label": "cheekibat — character post"
+        },
+        {
+          "url": "https://x.com/cheekibat/status/2111066237820133658",
+          "label": "cheekibat — artwork and context"
+        }
+      ]
+    },
+    "mlp-4chan": {
+      "anonfilly": [
+        {
+          "url": "https://fanlore.org/wiki/Anon_%28MLP%29",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "tracy-cage": [
+        {
+          "url": "https://derpibooru.org/images/244955",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "frosty-flakes": [
+        {
+          "url": "https://twibooru.org/3273731",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "nasapone": [
+        {
+          "url": "https://twibooru.org/3351087?q=oc%3Anasapone",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "heavy-halbard": [
+        {
+          "url": "https://www.twibooru.org/3139177",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "righty-tighty": [
+        {
+          "url": "https://twibooru.org/3534513",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "bijou-butterfly": [
+        {
+          "url": "https://www.twibooru.org/3288154",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "snowpity": [
+        {
+          "url": "https://www.twibooru.org/3164902",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "milkmare-of-trottingham": [
+        {
+          "url": "https://knowyourmeme.com/photos/932644-mlp",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    },
+    "con-mascots": {
+      "harmonic-tune": [
+        {
+          "url": "https://2025.harmonycon.org/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "harmony-star": [
+        {
+          "url": "https://2025.harmonycon.org/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "caramel-malt": [
+        {
+          "url": "https://2025.ponyvilleciderfest.com/about/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "barley-tender": [
+        {
+          "url": "https://2025.ponyvilleciderfest.com/about/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "fizzy-glitch": [
+        {
+          "url": "https://2025.ponyvilleciderfest.com/about/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "fair-flyer": [
+        {
+          "url": "https://marefair.org/news/fair-flyers-photo-album-sweepstakes/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "morning-mimosa": [
+        {
+          "url": "https://marefair.org/news/fair-flyers-photo-album-sweepstakes/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "matinee": [
+        {
+          "url": "https://marefair.org/news/fair-flyers-photo-album-sweepstakes/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "soiree": [
+        {
+          "url": "https://marefair.org/news/fair-flyers-photo-album-sweepstakes/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "fun-raiser": [
+        {
+          "url": "https://marefair.org/news/fair-flyers-photo-album-sweepstakes/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "front-page": [
+        {
+          "url": "https://2021.everfreenw.com/about/characters/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "novella": [
+        {
+          "url": "https://2021.everfreenw.com/about/characters/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "sharp-focus": [
+        {
+          "url": "https://2021.everfreenw.com/about/characters/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "mocha-sunrise": [
+        {
+          "url": "https://2021.everfreenw.com/about/characters/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "marina": [
+        {
+          "url": "https://2021.everfreenw.com/about/characters/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "golden-gates": [
+        {
+          "url": "https://www.babscon.com/2025/get-involved/casting-call/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "queen-quake": [
+        {
+          "url": "https://www.babscon.com/2025/get-involved/casting-call/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "andreas": [
+        {
+          "url": "https://www.babscon.com/2025/get-involved/casting-call/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "silver-span": [
+        {
+          "url": "https://www.babscon.com/2025/get-involved/casting-call/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "copper-chip": [
+        {
+          "url": "https://www.babscon.com/2025/get-involved/casting-call/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "foreshock": [
+        {
+          "url": "https://www.babscon.com/2025/get-involved/casting-call/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "peanut-bucker": [
+        {
+          "url": "https://trotcon.net/faq",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "canni-soda": [
+        {
+          "url": "https://galacon.eu/team/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "sani-soda": [
+        {
+          "url": "https://galacon.eu/team/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "wachmann": [
+        {
+          "url": "https://galacon.eu/team/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "aurora-harmony": [
+        {
+          "url": "https://galacon.eu/team/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "hoof-work": [
+        {
+          "url": "https://www.fimfiction.net/blog/725417/whinny-city-pony-con-ill-be-there",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "gwen": [
+        {
+          "url": "https://www.equestriadaily.com/2015/12/mlp-msp-3-mega-update.html",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "peponi": [
+        {
+          "url": "https://ponerpics.org/images/7007071",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "gibbous-moon": [
+        {
+          "url": "https://nightmarenights.org/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "lantern-light": [
+        {
+          "url": "https://nightmarenights.org/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "carry-on": [
+        {
+          "url": "https://nightmarenights.org/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "mane-event": [
+        {
+          "url": "https://archive.bronycon.org/2015/registration.html",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "hoof-beatz": [
+        {
+          "url": "https://archive.bronycon.org/2015/registration.html",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "blank-canvas": [
+        {
+          "url": "https://archive.bronycon.org/2015/registration.html",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "clipper-ship": [
+        {
+          "url": "https://mascots.pone.voyage/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "treasure-trove": [
+        {
+          "url": "https://mascots.pone.voyage/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ],
+      "sunkissed": [
+        {
+          "url": "https://mascots.pone.voyage/",
+          "label": "Sweetiebot catalog reference"
+        }
+      ]
+    }
+  }
+}
