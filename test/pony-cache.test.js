@@ -111,6 +111,20 @@ test('pack references survive the migration and enrich first research without a 
     'Even explicit curation must not silently discard migrated reference pages');
 }));
 
+test('Hoo\'Far uses a hyphenated canonical cache key while accepting legacy slugs', async () => {
+  const old = { packId: 'g4-stallions', slug: 'hoofar' };
+  const canonical = { packId: 'g4-stallions', slug: 'hoo-far' };
+  assert.equal(ponyCacheKey(old), 'g4-stallions/hoo-far');
+  assert.equal(ponyCacheKey(canonical), 'g4-stallions/hoo-far');
+  const legacy = await readPonyCache(old);
+  const modern = await readPonyCache(canonical);
+  assert.equal(legacy.hit, true);
+  assert.equal(modern.hit, true);
+  assert.equal(modern.record.slug, 'hoo-far');
+  assert.equal(modern.record.name, "Hoo'Far");
+  assert.deepEqual(legacy.record, modern.record);
+});
+
 test('the checked-in catalog reference index retains both Leaf Litter posts', async () => {
   const index = JSON.parse(await readFile(new URL('../ponies/sources.json', import.meta.url), 'utf8'));
   assert.equal(index.version, 1);

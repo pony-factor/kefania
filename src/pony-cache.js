@@ -18,7 +18,9 @@ export function ponyCacheKey(pony) {
   const pack = String(pony?.packId || '').trim().toLowerCase();
   const slug = String(pony?.canonicalSlug || pony?.slug || '').trim().toLowerCase();
   if (!allowed.test(pack) || !allowed.test(slug)) throw new Error('Invalid pony identity.');
-  return pack + '/' + slug;
+  // Historical Sweetiebot branches used the unhyphenated Hoo'Far slug.
+  const canonical = pack === 'g4-stallions' && slug === 'hoofar' ? 'hoo-far' : slug;
+  return pack + '/' + canonical;
 }
 const filePath = (pony, directory) => join(directory, ponyCacheKey(pony) + '.json');
 function validateLinks(values, artwork = false) {
